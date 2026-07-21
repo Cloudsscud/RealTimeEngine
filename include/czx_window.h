@@ -5,7 +5,6 @@
 
 #include <string>
 
-// RAII‘≠‘Ú
 namespace czx {
 
 	class CzxWindow {
@@ -19,6 +18,7 @@ namespace czx {
 
 		bool shouldClose() { return glfwWindowShouldClose(m_window); }
 
+		void createWindowSurface(VkInstance instance, VkSurfaceKHR* surface);
 	private:
 		void initWindow();
 

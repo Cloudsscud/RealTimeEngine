@@ -22,14 +22,16 @@ set(GLFW_SOURCE_DIR "${dependencies_dir}/GLFW/glfw-3.4/glfw-3.4" CACHE PATH "GLF
 
 set(ENGINE_SOURCES
     src/main.cpp
-    src/czx_window.cpp
     src/first_app.cpp
+    src/czx_window.cpp
+    src/czx_device.cpp
     src/czx_pipeline.cpp
 )
 
 set(ENGINE_HEADERS
-    include/czx_window.h
     include/first_app.h
+    include/czx_window.h
+    include/czx_device.h
     include/czx_pipeline.h
 )
 

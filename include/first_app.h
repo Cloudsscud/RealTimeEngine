@@ -1,6 +1,7 @@
 #pragma once
 
 #include <czx_window.h>
+#include <czx_device.h>
 #include <czx_pipeline.h>
 
 namespace czx {
@@ -12,6 +13,7 @@ namespace czx {
 		void run();
 	private:
 		CzxWindow m_window{WIDTH, HEIGHT, "Hello Vulkan!"};
-		CzxPipeline m_pipeline{ "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv" };
+		CzxDevice m_device{m_window};
+		CzxPipeline m_pipeline{m_device, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv", CzxPipeline::defaultPipelineConfigInfo(WIDTH, HEIGHT)};
 	};
 }	// namespace czx
