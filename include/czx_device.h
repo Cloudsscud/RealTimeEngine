@@ -33,7 +33,7 @@ namespace czx {
         CzxDevice(CzxWindow& window);
         ~CzxDevice();
 
-        // Not copyable or movable
+        // ½û¿½±´ÓëÒÆ¶¯
         CzxDevice(const CzxDevice&) = delete;
         void operator=(const CzxDevice&) = delete;
         CzxDevice(CzxDevice&&) = delete;
@@ -105,4 +105,4 @@ namespace czx {
         const std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
     };
 
-}  // namespace lve
+}  // namespace czx

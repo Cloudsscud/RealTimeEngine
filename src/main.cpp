@@ -45,16 +45,14 @@
 #include <stdexcept>
 
 int main() {
+	czx::FirstAPP app{};
 
 	try {
-		czx::FirstAPP app{};
 		app.run();
 	}
 	catch (const std::exception& e){
-		std::cerr << e.what() << '\n';
-		int a;
-		std::cin >> a;
-		return EXIT_FAILURE;
+		std::cerr << e.what() << std::endl;
+		return EXIT_FAILURE;	// cstdlib
 	}
 
 	return EXIT_SUCCESS;

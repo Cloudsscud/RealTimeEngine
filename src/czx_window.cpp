@@ -17,10 +17,10 @@ namespace czx {
 	}
 
 	void CzxWindow::initWindow() {
-		glfwInit();
+		glfwInit();	// 初始化glfw
 
-		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);	// 禁用创建窗口时使用api
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);	// 禁用窗口创建后调整大小
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);	// 禁止glfw使用后续调用来创建opengl上下文
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);		// 禁止窗口调整大小
 
 		m_window = glfwCreateWindow(m_width, m_height, m_windowName.c_str(), nullptr, nullptr);
 	}
