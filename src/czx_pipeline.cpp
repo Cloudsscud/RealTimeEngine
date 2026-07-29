@@ -88,6 +88,14 @@ namespace czx {
 		vertexInputInfo.pVertexAttributeDescriptions = nullptr;
 		vertexInputInfo.pVertexBindingDescriptions = nullptr;
 
+		// 局部视口创建信息，避免内部视口释放
+		VkPipelineViewportStateCreateInfo viewportInfo{};
+		viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+		viewportInfo.viewportCount = 1;						// 单视口
+		viewportInfo.pViewports = &configInfo.viewport;
+		viewportInfo.scissorCount = 1;						// 单裁剪矩形
+		viewportInfo.pScissors = &configInfo.scissor;
+
 		// 创建图形管线
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -95,7 +103,7 @@ namespace czx {
 		pipelineInfo.pStages = shaderStages;
 		pipelineInfo.pVertexInputState = &vertexInputInfo;		// 顶点输入
 		pipelineInfo.pInputAssemblyState = &configInfo.inputAssemblyInfo;	// 拓扑
-		pipelineInfo.pViewportState = &configInfo.viewportInfo;				// 视口与裁剪
+		pipelineInfo.pViewportState = &viewportInfo;				// 视口与裁剪
 		pipelineInfo.pRasterizationState = &configInfo.rasterizationInfo;	// 光栅化
 		pipelineInfo.pMultisampleState = &configInfo.multisampleInfo;		// 多重采样
 		pipelineInfo.pColorBlendState = &configInfo.colorBlendInfo;			// 颜色混合
@@ -128,6 +136,11 @@ namespace czx {
 		}
 	}
 
+	void CzxPipeline::bind(VkCommandBuffer commandBuffer) {
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
+	}
+
+
 	PipelineConfigInfo CzxPipeline::defaultPipelineConfigInfo(uint32_t width, uint32_t height) {
 		PipelineConfigInfo configInfo{};
 
@@ -151,12 +164,6 @@ namespace czx {
 		// 配置裁剪矩形，限定渲染矩形区域内的像素
 		configInfo.scissor.offset = { 0, 0 };			// 裁剪矩形的左上角坐标int32_t
 		configInfo.scissor.extent = { width, height };	// uint32_t渲染整个窗口的像素->不裁剪
-
-		configInfo.viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		configInfo.viewportInfo.viewportCount = 1;						// 单视口
-		configInfo.viewportInfo.pViewports = &configInfo.viewport;
-		configInfo.viewportInfo.scissorCount = 1;						// 单裁剪矩形
-		configInfo.viewportInfo.pScissors = &configInfo.scissor;
 
 		// 配置光栅化设置
 		configInfo.rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;

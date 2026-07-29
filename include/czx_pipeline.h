@@ -12,7 +12,6 @@ namespace czx {
 	struct PipelineConfigInfo{
 		VkViewport viewport;
 		VkRect2D scissor;
-		VkPipelineViewportStateCreateInfo viewportInfo;
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;	// 用于配置输入装配阶段的结构体，将输入数据组装为图元，创建后固定拓扑，不同拓扑需多管线
 		VkPipelineRasterizationStateCreateInfo rasterizationInfo;	// 用于控制将多边形转换为片元，创建后固定，不同片元类型需多管线
 		VkPipelineMultisampleStateCreateInfo multisampleInfo;		// 控制多重采样抗锯齿MSAA
@@ -38,6 +37,8 @@ namespace czx {
 		// 禁用复制
 		CzxPipeline(const CzxPipeline&) = delete;
 		CzxPipeline& operator=(const CzxPipeline&) = delete;
+
+		void bind(VkCommandBuffer commandBuffer);
 
 		static PipelineConfigInfo defaultPipelineConfigInfo(uint32_t width, uint32_t height);
 

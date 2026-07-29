@@ -20,12 +20,62 @@ set(VULKAN_SDK "${dependencies_dir}/vulkan/VulkanSDK/1.4.350.0" CACHE PATH "Vulk
 set(GLM_DIR "${dependencies_dir}/glm" CACHE PATH "GLM directory")
 set(GLFW_SOURCE_DIR "${dependencies_dir}/GLFW/glfw-3.4/glfw-3.4" CACHE PATH "GLFW source directory")
 
+# 查找 glslc 编译器（使用你compile.bat中的路径）
+find_program(GLSL_COMPILER
+    NAMES glslc glslc.exe
+    PATHS "${VULKAN_SDK}/Bin"
+    DOC "Vulkan shader compiler (glslc)"
+    REQUIRED
+)
+message(STATUS "Found glslc: ${GLSL_COMPILER}")
+
+# ========== 着色器自动编译 ==========
+set(SHADER_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
+set(SHADER_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
+
+# 创建输出目录
+file(MAKE_DIRECTORY ${SHADER_OUTPUT_DIR})
+
+# 收集所有着色器源文件（.vert 和 .frag）
+file(GLOB SHADER_SOURCES
+    "${SHADER_SRC_DIR}/*.vert"
+    "${SHADER_SRC_DIR}/*.frag"
+    # 如果需要其他类型，取消注释：
+    # "${SHADER_SRC_DIR}/*.comp"
+    # "${SHADER_SRC_DIR}/*.geom"
+)
+
+# 为每个着色器生成编译规则
+set(SHADER_OUTPUTS "")
+foreach(SHADER ${SHADER_SOURCES})
+    get_filename_component(SHADER_NAME ${SHADER} NAME)
+    set(OUTPUT_FILE "${SHADER_OUTPUT_DIR}/${SHADER_NAME}.spv")
+    list(APPEND SHADER_OUTPUTS ${OUTPUT_FILE})
+    
+    add_custom_command(
+        OUTPUT ${OUTPUT_FILE}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADER_OUTPUT_DIR}
+        COMMAND ${GLSL_COMPILER} ${SHADER} -o ${OUTPUT_FILE}
+        DEPENDS ${SHADER}
+        COMMENT "Compiling shader: ${SHADER_NAME} -> ${SHADER_NAME}.spv"
+        VERBATIM
+    )
+endforeach()
+
+# 创建目标来编译所有着色器
+add_custom_target(CompileShaders ALL
+    DEPENDS ${SHADER_OUTPUTS}
+    COMMENT "Compiling all shaders (glslc)"
+)
+
+
 set(ENGINE_SOURCES
     src/main.cpp
     src/first_app.cpp
     src/czx_window.cpp
     src/czx_device.cpp
     src/czx_pipeline.cpp
+    src/czx_swap_chain.cpp
 )
 
 set(ENGINE_HEADERS
@@ -33,6 +83,7 @@ set(ENGINE_HEADERS
     include/czx_window.h
     include/czx_device.h
     include/czx_pipeline.h
+    include/czx_swap_chain.h
 )
 
 set(ENGINE_RESOURCES
@@ -49,6 +100,9 @@ add_executable(${PROJECT_NAME}
     ${ENGINE_HEADERS}
     ${ENGINE_RESOURCES}
   )
+
+  # 着色器编译目标作为可执行文件的依赖
+add_dependencies(${PROJECT_NAME} CompileShaders)
 
 # 设置C++标准
 if (CMAKE_VERSION VERSION_GREATER 3.12)
@@ -69,8 +123,18 @@ target_link_libraries(RealTimeEngine
 )
 
 
+# 复制编译后的着色器到可执行文件目录（运行时使用）
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${SHADER_OUTPUT_DIR}
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders
+    COMMENT "Copying compiled shaders to executable directory"
+)
+
+# 保留原有复制（用于源码目录，可能不需要，但保留兼容）
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/shaders/
      DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/shaders/)
+
 set_target_properties(RealTimeEngine PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
 )
