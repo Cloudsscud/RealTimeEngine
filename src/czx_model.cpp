@@ -53,11 +53,16 @@ namespace czx {
 	}
 
 	std::vector<VkVertexInputAttributeDescription> CzxModel::Vertex::getAttributeDescriptions() {
-		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(1);
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
 		attributeDescriptions[0].binding = 0;
-		attributeDescriptions[0].location = 0; // 对应vertex shader 对应的position
+		attributeDescriptions[0].location = 0; // 对应vertex shader对应的position
 		attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;	// vec2
-		attributeDescriptions[0].offset = 0;
+		attributeDescriptions[0].offset = offsetof(Vertex, position);	// 自行计算顶点属性中成员变量的偏移
+
+		attributeDescriptions[1].binding = 0;	// 与位置交错绑定
+		attributeDescriptions[1].location = 1; // 对应vertex shader对应的color
+		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;	// vec3
+		attributeDescriptions[1].offset = offsetof(Vertex, color);
 		return attributeDescriptions;
 	}
 

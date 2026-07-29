@@ -26,9 +26,9 @@ namespace czx {
 	void FirstAPP::loadModels() {
 		// {vector{Vertex{glm::vec2}}}
 		std::vector<CzxModel::Vertex> vertices{
-			{{0.0f,-0.5f}},
-			{{0.5f,0.5f}},
-			{{-0.5f, 0.5f}}
+			{{0.0f,-0.5f}, {1.0f, 0.0f, 0.0f}},
+			{{0.5f,0.5f}, { 0.0f, 1.0f, 0.0f }},
+			{{-0.5f, 0.5f},{0.0f, 0.0f, 1.0f}}
 		};
 
 		m_model = std::make_unique<CzxModel>(m_device, vertices);
