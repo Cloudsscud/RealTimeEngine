@@ -4,6 +4,7 @@
 #include <czx_device.h>
 #include <czx_pipeline.h>
 #include <czx_swap_chain.h>
+#include <czx_model.h>
 
 // std
 #include <memory>
@@ -23,6 +24,7 @@ namespace czx {
 
 		void run();
 	private:
+		void loadModels();
 		void createPipelineLayout();
 		void createPipeline();
 		void createCommandBuffers();
@@ -34,5 +36,6 @@ namespace czx {
 		VkPipelineLayout m_pipelineLayout;
 		std::unique_ptr<CzxPipeline> m_pipeline;
 		std::vector<VkCommandBuffer> m_commandBuffers;
+		std::unique_ptr<CzxModel> m_model;
 	};
 }	// namespace czx

@@ -1,4 +1,5 @@
 #include <czx_pipeline.h>
+#include <czx_model.h>
 
 // std
 #include <fstream>
@@ -81,12 +82,16 @@ namespace czx {
 		shaderStages[1].pSpecializationInfo = nullptr;
 
 		// 配置管线顶点输入设置
+		// 根据定义好的vertex buffer来完善管线的定点输入配置
+		auto bindingDescriptions = CzxModel::Vertex::getBindingDescriptions();
+		auto attributeDescriptions = CzxModel::Vertex::getAttributeDescriptions();
+
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexAttributeDescriptionCount = 0;		// 无顶点输入数据
-		vertexInputInfo.vertexBindingDescriptionCount = 0;
-		vertexInputInfo.pVertexAttributeDescriptions = nullptr;
-		vertexInputInfo.pVertexBindingDescriptions = nullptr;
+		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+		vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size());
+		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+		vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 
 		// 局部视口创建信息，避免内部视口释放
 		VkPipelineViewportStateCreateInfo viewportInfo{};

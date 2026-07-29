@@ -12,7 +12,7 @@
 namespace czx {
 
     CzxSwapChain::CzxSwapChain(CzxDevice& deviceRef, VkExtent2D extent)
-        : device{ deviceRef }, windowExtent{ extent } {
+        : m_device{ deviceRef }, m_windowExtent{ extent } {
         createSwapChain();
         createImageViews();
         createRenderPass();
@@ -22,49 +22,49 @@ namespace czx {
     }
 
     CzxSwapChain::~CzxSwapChain() {
-        for (auto imageView : swapChainImageViews) {
-            vkDestroyImageView(device.device(), imageView, nullptr);
+        for (auto imageView : m_swapChainImageViews) {
+            vkDestroyImageView(m_device.device(), imageView, nullptr);
         }
-        swapChainImageViews.clear();
+        m_swapChainImageViews.clear();
 
-        if (swapChain != nullptr) {
-            vkDestroySwapchainKHR(device.device(), swapChain, nullptr);
-            swapChain = nullptr;
-        }
-
-        for (int i = 0; i < depthImages.size(); i++) {
-            vkDestroyImageView(device.device(), depthImageViews[i], nullptr);
-            vkDestroyImage(device.device(), depthImages[i], nullptr);
-            vkFreeMemory(device.device(), depthImageMemorys[i], nullptr);
+        if (m_swapChain != nullptr) {
+            vkDestroySwapchainKHR(m_device.device(), m_swapChain, nullptr);
+            m_swapChain = nullptr;
         }
 
-        for (auto framebuffer : swapChainFramebuffers) {
-            vkDestroyFramebuffer(device.device(), framebuffer, nullptr);
+        for (int i = 0; i < m_depthImages.size(); i++) {
+            vkDestroyImageView(m_device.device(), m_depthImageViews[i], nullptr);
+            vkDestroyImage(m_device.device(), m_depthImages[i], nullptr);
+            vkFreeMemory(m_device.device(), m_depthImageMemorys[i], nullptr);
         }
 
-        vkDestroyRenderPass(device.device(), renderPass, nullptr);
+        for (auto framebuffer : m_swapChainFramebuffers) {
+            vkDestroyFramebuffer(m_device.device(), framebuffer, nullptr);
+        }
+
+        vkDestroyRenderPass(m_device.device(), m_renderPass, nullptr);
 
         // cleanup synchronization objects
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            vkDestroySemaphore(device.device(), renderFinishedSemaphores[i], nullptr);
-            vkDestroySemaphore(device.device(), imageAvailableSemaphores[i], nullptr);
-            vkDestroyFence(device.device(), inFlightFences[i], nullptr);
+            vkDestroySemaphore(m_device.device(), m_renderFinishedSemaphores[i], nullptr);
+            vkDestroySemaphore(m_device.device(), m_imageAvailableSemaphores[i], nullptr);
+            vkDestroyFence(m_device.device(), m_inFlightFences[i], nullptr);
         }
     }
 
     VkResult CzxSwapChain::acquireNextImage(uint32_t* imageIndex) {
         vkWaitForFences(
-            device.device(),
+            m_device.device(),
             1,
-            &inFlightFences[currentFrame],
+            &m_inFlightFences[m_currentFrame],
             VK_TRUE,
             std::numeric_limits<uint64_t>::max());
 
         VkResult result = vkAcquireNextImageKHR(
-            device.device(),
-            swapChain,
+            m_device.device(),
+            m_swapChain,
             std::numeric_limits<uint64_t>::max(),
-            imageAvailableSemaphores[currentFrame],  // must be a not signaled semaphore
+            m_imageAvailableSemaphores[m_currentFrame],  // must be a not signaled semaphore
             VK_NULL_HANDLE,
             imageIndex);
 
@@ -73,15 +73,15 @@ namespace czx {
 
     VkResult CzxSwapChain::submitCommandBuffers(
         const VkCommandBuffer* buffers, uint32_t* imageIndex) {
-        if (imagesInFlight[*imageIndex] != VK_NULL_HANDLE) {
-            vkWaitForFences(device.device(), 1, &imagesInFlight[*imageIndex], VK_TRUE, UINT64_MAX);
+        if (m_imagesInFlight[*imageIndex] != VK_NULL_HANDLE) {
+            vkWaitForFences(m_device.device(), 1, &m_imagesInFlight[*imageIndex], VK_TRUE, UINT64_MAX);
         }
-        imagesInFlight[*imageIndex] = inFlightFences[currentFrame];
+        m_imagesInFlight[*imageIndex] = m_inFlightFences[m_currentFrame];
 
         VkSubmitInfo submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-        VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
+        VkSemaphore waitSemaphores[] = { m_imageAvailableSemaphores[m_currentFrame] };
         VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
         submitInfo.waitSemaphoreCount = 1;
         submitInfo.pWaitSemaphores = waitSemaphores;
@@ -90,12 +90,12 @@ namespace czx {
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = buffers;
 
-        VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+        VkSemaphore signalSemaphores[] = { m_renderFinishedSemaphores[m_currentFrame] };
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
-        vkResetFences(device.device(), 1, &inFlightFences[currentFrame]);
-        if (vkQueueSubmit(device.graphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame]) !=
+        vkResetFences(m_device.device(), 1, &m_inFlightFences[m_currentFrame]);
+        if (vkQueueSubmit(m_device.graphicsQueue(), 1, &submitInfo, m_inFlightFences[m_currentFrame]) !=
             VK_SUCCESS) {
             throw std::runtime_error("failed to submit draw command buffer!");
         }
@@ -106,21 +106,21 @@ namespace czx {
         presentInfo.waitSemaphoreCount = 1;
         presentInfo.pWaitSemaphores = signalSemaphores;
 
-        VkSwapchainKHR swapChains[] = { swapChain };
+        VkSwapchainKHR swapChains[] = { m_swapChain };
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = swapChains;
 
         presentInfo.pImageIndices = imageIndex;
 
-        auto result = vkQueuePresentKHR(device.presentQueue(), &presentInfo);
+        auto result = vkQueuePresentKHR(m_device.presentQueue(), &presentInfo);
 
-        currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+        m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
         return result;
     }
 
     void CzxSwapChain::createSwapChain() {
-        SwapChainSupportDetails swapChainSupport = device.getSwapChainSupport();
+        SwapChainSupportDetails swapChainSupport = m_device.getSwapChainSupport();
 
         VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
         VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
@@ -134,7 +134,7 @@ namespace czx {
 
         VkSwapchainCreateInfoKHR createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        createInfo.surface = device.surface();
+        createInfo.surface = m_device.surface();
 
         createInfo.minImageCount = imageCount;
         createInfo.imageFormat = surfaceFormat.format;
@@ -143,7 +143,7 @@ namespace czx {
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-        QueueFamilyIndices indices = device.findPhysicalQueueFamilies();
+        QueueFamilyIndices indices = m_device.findPhysicalQueueFamilies();
         uint32_t queueFamilyIndices[] = { indices.graphicsFamily, indices.presentFamily };
 
         if (indices.graphicsFamily != indices.presentFamily) {
@@ -165,7 +165,7 @@ namespace czx {
 
         createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-        if (vkCreateSwapchainKHR(device.device(), &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
+        if (vkCreateSwapchainKHR(m_device.device(), &createInfo, nullptr, &m_swapChain) != VK_SUCCESS) {
             throw std::runtime_error("failed to create swap chain!");
         }
 
@@ -173,29 +173,29 @@ namespace czx {
         // allowed to create a swap chain with more. That's why we'll first query the final number of
         // images with vkGetSwapchainImagesKHR, then resize the container and finally call it again to
         // retrieve the handles.
-        vkGetSwapchainImagesKHR(device.device(), swapChain, &imageCount, nullptr);
-        swapChainImages.resize(imageCount);
-        vkGetSwapchainImagesKHR(device.device(), swapChain, &imageCount, swapChainImages.data());
+        vkGetSwapchainImagesKHR(m_device.device(), m_swapChain, &imageCount, nullptr);
+        m_swapChainImages.resize(imageCount);
+        vkGetSwapchainImagesKHR(m_device.device(), m_swapChain, &imageCount, m_swapChainImages.data());
 
-        swapChainImageFormat = surfaceFormat.format;
-        swapChainExtent = extent;
+        m_swapChainImageFormat = surfaceFormat.format;
+        m_swapChainExtent = extent;
     }
 
     void CzxSwapChain::createImageViews() {
-        swapChainImageViews.resize(swapChainImages.size());
-        for (size_t i = 0; i < swapChainImages.size(); i++) {
+        m_swapChainImageViews.resize(m_swapChainImages.size());
+        for (size_t i = 0; i < m_swapChainImages.size(); i++) {
             VkImageViewCreateInfo viewInfo{};
             viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-            viewInfo.image = swapChainImages[i];
+            viewInfo.image = m_swapChainImages[i];
             viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            viewInfo.format = swapChainImageFormat;
+            viewInfo.format = m_swapChainImageFormat;
             viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
             viewInfo.subresourceRange.baseMipLevel = 0;
             viewInfo.subresourceRange.levelCount = 1;
             viewInfo.subresourceRange.baseArrayLayer = 0;
             viewInfo.subresourceRange.layerCount = 1;
 
-            if (vkCreateImageView(device.device(), &viewInfo, nullptr, &swapChainImageViews[i]) !=
+            if (vkCreateImageView(m_device.device(), &viewInfo, nullptr, &m_swapChainImageViews[i]) !=
                 VK_SUCCESS) {
                 throw std::runtime_error("failed to create texture image view!");
             }
@@ -258,20 +258,20 @@ namespace czx {
         renderPassInfo.dependencyCount = 1;
         renderPassInfo.pDependencies = &dependency;
 
-        if (vkCreateRenderPass(device.device(), &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
+        if (vkCreateRenderPass(m_device.device(), &renderPassInfo, nullptr, &m_renderPass) != VK_SUCCESS) {
             throw std::runtime_error("failed to create render pass!");
         }
     }
 
     void CzxSwapChain::createFramebuffers() {
-        swapChainFramebuffers.resize(imageCount());
+        m_swapChainFramebuffers.resize(imageCount());
         for (size_t i = 0; i < imageCount(); i++) {
-            std::array<VkImageView, 2> attachments = { swapChainImageViews[i], depthImageViews[i] };
+            std::array<VkImageView, 2> attachments = { m_swapChainImageViews[i], m_depthImageViews[i] };
 
             VkExtent2D swapChainExtent = getSwapChainExtent();
             VkFramebufferCreateInfo framebufferInfo = {};
             framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            framebufferInfo.renderPass = renderPass;
+            framebufferInfo.renderPass = m_renderPass;
             framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
             framebufferInfo.pAttachments = attachments.data();
             framebufferInfo.width = swapChainExtent.width;
@@ -279,10 +279,10 @@ namespace czx {
             framebufferInfo.layers = 1;
 
             if (vkCreateFramebuffer(
-                device.device(),
+                m_device.device(),
                 &framebufferInfo,
                 nullptr,
-                &swapChainFramebuffers[i]) != VK_SUCCESS) {
+                &m_swapChainFramebuffers[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create framebuffer!");
             }
         }
@@ -292,11 +292,11 @@ namespace czx {
         VkFormat depthFormat = findDepthFormat();
         VkExtent2D swapChainExtent = getSwapChainExtent();
 
-        depthImages.resize(imageCount());
-        depthImageMemorys.resize(imageCount());
-        depthImageViews.resize(imageCount());
+        m_depthImages.resize(imageCount());
+        m_depthImageMemorys.resize(imageCount());
+        m_depthImageViews.resize(imageCount());
 
-        for (int i = 0; i < depthImages.size(); i++) {
+        for (int i = 0; i < m_depthImages.size(); i++) {
             VkImageCreateInfo imageInfo{};
             imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
             imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -313,15 +313,15 @@ namespace czx {
             imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
             imageInfo.flags = 0;
 
-            device.createImageWithInfo(
+            m_device.createImageWithInfo(
                 imageInfo,
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                depthImages[i],
-                depthImageMemorys[i]);
+                m_depthImages[i],
+                m_depthImageMemorys[i]);
 
             VkImageViewCreateInfo viewInfo{};
             viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-            viewInfo.image = depthImages[i];
+            viewInfo.image = m_depthImages[i];
             viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
             viewInfo.format = depthFormat;
             viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -330,17 +330,17 @@ namespace czx {
             viewInfo.subresourceRange.baseArrayLayer = 0;
             viewInfo.subresourceRange.layerCount = 1;
 
-            if (vkCreateImageView(device.device(), &viewInfo, nullptr, &depthImageViews[i]) != VK_SUCCESS) {
+            if (vkCreateImageView(m_device.device(), &viewInfo, nullptr, &m_depthImageViews[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create texture image view!");
             }
         }
     }
 
     void CzxSwapChain::createSyncObjects() {
-        imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-        imagesInFlight.resize(imageCount(), VK_NULL_HANDLE);
+        m_imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+        m_renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+        m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+        m_imagesInFlight.resize(imageCount(), VK_NULL_HANDLE);
 
         VkSemaphoreCreateInfo semaphoreInfo = {};
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -350,11 +350,11 @@ namespace czx {
         fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            if (vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) !=
+            if (vkCreateSemaphore(m_device.device(), &semaphoreInfo, nullptr, &m_imageAvailableSemaphores[i]) !=
                 VK_SUCCESS ||
-                vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) !=
+                vkCreateSemaphore(m_device.device(), &semaphoreInfo, nullptr, &m_renderFinishedSemaphores[i]) !=
                 VK_SUCCESS ||
-                vkCreateFence(device.device(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
+                vkCreateFence(m_device.device(), &fenceInfo, nullptr, &m_inFlightFences[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create synchronization objects for a frame!");
             }
         }
@@ -402,7 +402,7 @@ namespace czx {
             return capabilities.currentExtent;
         }
         else {
-            VkExtent2D actualExtent = windowExtent;
+            VkExtent2D actualExtent = m_windowExtent;
             actualExtent.width = std::max(
                 capabilities.minImageExtent.width,
                 std::min(capabilities.maxImageExtent.width, actualExtent.width));
@@ -415,7 +415,7 @@ namespace czx {
     }
 
     VkFormat CzxSwapChain::findDepthFormat() {
-        return device.findSupportedFormat(
+        return m_device.findSupportedFormat(
             { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
             VK_IMAGE_TILING_OPTIMAL,
             VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);

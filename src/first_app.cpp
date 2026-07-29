@@ -6,6 +6,7 @@
 
 namespace czx {
 	FirstAPP::FirstAPP() {
+		loadModels();
 		createPipelineLayout();
 		createPipeline();
 		createCommandBuffers();
@@ -21,6 +22,18 @@ namespace czx {
 		}
 		vkDeviceWaitIdle(m_device.device());
 	}
+
+	void FirstAPP::loadModels() {
+		// {vector{Vertex{glm::vec2}}}
+		std::vector<CzxModel::Vertex> vertices{
+			{{0.0f,-0.5f}},
+			{{0.5f,0.5f}},
+			{{-0.5f, 0.5f}}
+		};
+
+		m_model = std::make_unique<CzxModel>(m_device, vertices);
+	}
+
 
 	void FirstAPP::createPipelineLayout() {
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -76,7 +89,8 @@ namespace czx {
 			vkCmdBeginRenderPass(m_commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 			m_pipeline->bind(m_commandBuffers[i]);
-			vkCmdDraw(m_commandBuffers[1], 3, 1, 0, 0);
+			m_model->bind(m_commandBuffers[i]);	// 绑定并绘制vertex buffer数据
+			m_model->draw(m_commandBuffers[i]);
 
 			vkCmdEndRenderPass(m_commandBuffers[i]);
 			if (vkEndCommandBuffer(m_commandBuffers[i]) != VK_SUCCESS) {
