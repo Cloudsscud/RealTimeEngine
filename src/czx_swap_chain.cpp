@@ -13,6 +13,18 @@ namespace czx {
 
     CzxSwapChain::CzxSwapChain(CzxDevice& deviceRef, VkExtent2D extent)
         : m_device{ deviceRef }, m_windowExtent{ extent } {
+        init();
+    }
+
+    CzxSwapChain::CzxSwapChain(CzxDevice& deviceRef, VkExtent2D extent, std::shared_ptr<CzxSwapChain> previous)
+        : m_device{ deviceRef }, m_windowExtent{ extent }, m_oldSwapChain{previous} {
+        init();
+
+        // 清理旧交换链直到不再使用
+        m_oldSwapChain = nullptr;
+    }
+
+    void CzxSwapChain::init() {
         createSwapChain();
         createImageViews();
         createRenderPass();
@@ -20,6 +32,7 @@ namespace czx {
         createFramebuffers();
         createSyncObjects();
     }
+
 
     CzxSwapChain::~CzxSwapChain() {
         for (auto imageView : m_swapChainImageViews) {
@@ -163,7 +176,7 @@ namespace czx {
         createInfo.presentMode = presentMode;
         createInfo.clipped = VK_TRUE;
 
-        createInfo.oldSwapchain = VK_NULL_HANDLE;
+        createInfo.oldSwapchain = m_oldSwapChain == nullptr ? VK_NULL_HANDLE : m_oldSwapChain->m_swapChain;
 
         if (vkCreateSwapchainKHR(m_device.device(), &createInfo, nullptr, &m_swapChain) != VK_SUCCESS) {
             throw std::runtime_error("failed to create swap chain!");

@@ -18,14 +18,17 @@ namespace czx {
 
 		bool shouldClose() { return glfwWindowShouldClose(m_window); }
 		VkExtent2D getExtent() { return { static_cast<uint32_t>(m_width), static_cast<uint32_t>(m_height) }; }
+		bool wasWindowResized() { return m_framebufferResized; }
+		void resetWindowResizedFlag() { m_framebufferResized = false; }
 
 		void createWindowSurface(VkInstance instance, VkSurfaceKHR* surface);
 	private:
+		static void framebufferResizeCallBack(GLFWwindow* window, int width, int height);
 		void initWindow();
 
-		// 不初始化数值，消除默认无参构造函数
-		const int m_width;
-		const int m_height;
+		int m_width;
+		int m_height;
+		bool m_framebufferResized = false;
 
 		std::string m_windowName;
 		GLFWwindow* m_window;

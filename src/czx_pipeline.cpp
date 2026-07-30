@@ -93,14 +93,6 @@ namespace czx {
 		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 		vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 
-		// 局部视口创建信息，避免内部视口释放
-		VkPipelineViewportStateCreateInfo viewportInfo{};
-		viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		viewportInfo.viewportCount = 1;						// 单视口
-		viewportInfo.pViewports = &configInfo.viewport;
-		viewportInfo.scissorCount = 1;						// 单裁剪矩形
-		viewportInfo.pScissors = &configInfo.scissor;
-
 		// 创建图形管线
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -108,12 +100,12 @@ namespace czx {
 		pipelineInfo.pStages = shaderStages;
 		pipelineInfo.pVertexInputState = &vertexInputInfo;		// 顶点输入
 		pipelineInfo.pInputAssemblyState = &configInfo.inputAssemblyInfo;	// 拓扑
-		pipelineInfo.pViewportState = &viewportInfo;				// 视口与裁剪
+		pipelineInfo.pViewportState = &configInfo.viewportInfo;				// 视口与裁剪
 		pipelineInfo.pRasterizationState = &configInfo.rasterizationInfo;	// 光栅化
 		pipelineInfo.pMultisampleState = &configInfo.multisampleInfo;		// 多重采样
 		pipelineInfo.pColorBlendState = &configInfo.colorBlendInfo;			// 颜色混合
 		pipelineInfo.pDepthStencilState = &configInfo.depthStencilInfo;		// optional深度模板	
-		pipelineInfo.pDynamicState = nullptr;								// optional动态状态;nullptr所有状态创建时固定
+		pipelineInfo.pDynamicState = &configInfo.dynamicStateInfo;								// optional动态状态;nullptr所有状态创建时固定
 
 		pipelineInfo.layout = configInfo.pipelineLayout;
 		pipelineInfo.renderPass = configInfo.renderPass;
@@ -146,29 +138,18 @@ namespace czx {
 	}
 
 
-	PipelineConfigInfo CzxPipeline::defaultPipelineConfigInfo(uint32_t width, uint32_t height) {
-		PipelineConfigInfo configInfo{};
-
+	void CzxPipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) {
 		// 输入装配设置
 		configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;	// 自描述，记录类型
 		configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;	// 规定装配图元的拓扑结构为每三点一独立三角形
 		// POINT_LIST点列表，LINE_LIST两点一独立线段，TRIANGLE_STRIP三角形条带：每点与前两点一个共边三角形...
 		configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;	// 禁用图元重启；仅STRIP条带拓扑时为VK_TRUE来通过插入特殊索引0xFFFF/0xFFFFFF截断条带，而不用重绑定顶点缓冲区
 
-		// 注意：视口与裁剪固定在管线中，不支持窗口Resize
-		// 配置视口，将NDC下的坐标映射到帧缓冲的像素区域
-		configInfo.viewport.x = 0.0f;	// 视口左上角在帧缓冲的坐标为0,0
-		configInfo.viewport.y = 0.0f;
-		configInfo.viewport.width = static_cast<float>(width);	// 视口宽高
-		configInfo.viewport.height = static_cast<float>(height);
-		configInfo.viewport.minDepth = 0.0f;	// NDC的z[-1,1]映射到帧缓冲的深度[0,1]
-		configInfo.viewport.maxDepth = 1.0f;
-		// 屏幕上的x = viewport.x+(NDC.x+1)/2*width
-		// 屏幕上的y = viewport.y+(1-NDC.y)/2*width	// 左上角原点，y轴向下
-		
-		// 配置裁剪矩形，限定渲染矩形区域内的像素
-		configInfo.scissor.offset = { 0, 0 };			// 裁剪矩形的左上角坐标int32_t
-		configInfo.scissor.extent = { width, height };	// uint32_t渲染整个窗口的像素->不裁剪
+		configInfo.viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+		configInfo.viewportInfo.viewportCount = 1;						// 单视口
+		configInfo.viewportInfo.pViewports = nullptr;
+		configInfo.viewportInfo.scissorCount = 1;						// 单裁剪矩形
+		configInfo.viewportInfo.pScissors = nullptr;
 
 		// 配置光栅化设置
 		configInfo.rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -225,7 +206,12 @@ namespace czx {
 		configInfo.depthStencilInfo.front = {};							// 正面模板测试参数
 		configInfo.depthStencilInfo.back = {};							// 背面模板测试参数
 
-		return configInfo;
+		configInfo.dynamicStateEnables = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+		configInfo.dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+		configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();
+		configInfo.dynamicStateInfo.dynamicStateCount = configInfo.dynamicStateEnables.size();
+		configInfo.dynamicStateInfo.flags = 0;
+
 	}
 
 }

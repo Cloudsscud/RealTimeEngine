@@ -10,14 +10,19 @@ namespace czx {
 
 	// 管线配置信息，方便应用层快速管理管线，允许多管线使用相同配置，创建管线后固定
 	struct PipelineConfigInfo{
-		VkViewport viewport;
-		VkRect2D scissor;
+		PipelineConfigInfo() = default;
+		PipelineConfigInfo(const PipelineConfigInfo&) = delete;
+		PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
+
+		VkPipelineViewportStateCreateInfo viewportInfo;
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;	// 用于配置输入装配阶段的结构体，将输入数据组装为图元，创建后固定拓扑，不同拓扑需多管线
 		VkPipelineRasterizationStateCreateInfo rasterizationInfo;	// 用于控制将多边形转换为片元，创建后固定，不同片元类型需多管线
 		VkPipelineMultisampleStateCreateInfo multisampleInfo;		// 控制多重采样抗锯齿MSAA
 		VkPipelineColorBlendAttachmentState colorBlendAttachment;	// 控制单帧缓冲附件(RenderTarget)的混合公式
 		VkPipelineColorBlendStateCreateInfo colorBlendInfo;			// 封装附件，使用全局混合常量
 		VkPipelineDepthStencilStateCreateInfo depthStencilInfo;		// 控制深度测试、深度写入、比较操作符、模板测试，创建后固定，不同深度测试需多管线
+		std::vector<VkDynamicState> dynamicStateEnables;
+		VkPipelineDynamicStateCreateInfo dynamicStateInfo;
 		// 默认管线配置不处理管线布局与渲染通道，在函数外设置
 		VkPipelineLayout pipelineLayout = nullptr;					// 描述资源绑定布局
 		VkRenderPass renderPass = nullptr;							// 描述帧缓冲的格式、采样数、加载存储操作
@@ -40,7 +45,7 @@ namespace czx {
 
 		void bind(VkCommandBuffer commandBuffer);
 
-		static PipelineConfigInfo defaultPipelineConfigInfo(uint32_t width, uint32_t height);
+		static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
 
 	private:
 		static std::vector<char> readFile(const std::string& filePath);

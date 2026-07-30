@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.h>
 
 // std lib headers
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -16,10 +17,11 @@ namespace czx {
         static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
         CzxSwapChain(CzxDevice& deviceRef, VkExtent2D windowExtent);
+        CzxSwapChain(CzxDevice& deviceRef, VkExtent2D windowExtent, std::shared_ptr<CzxSwapChain> previous);
         ~CzxSwapChain();
 
         CzxSwapChain(const CzxSwapChain&) = delete;
-        void operator=(const CzxSwapChain&) = delete;
+        CzxSwapChain& operator=(const CzxSwapChain&) = delete;
 
         VkFramebuffer getFrameBuffer(int index) { return m_swapChainFramebuffers[index]; }
         VkRenderPass getRenderPass() { return m_renderPass; }
@@ -39,6 +41,7 @@ namespace czx {
         VkResult submitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex);
 
     private:
+        void init();
         void createSwapChain();
         void createImageViews();
         void createDepthResources();
@@ -69,6 +72,7 @@ namespace czx {
         VkExtent2D m_windowExtent;
 
         VkSwapchainKHR m_swapChain;
+        std::shared_ptr<CzxSwapChain> m_oldSwapChain;
 
         std::vector<VkSemaphore> m_imageAvailableSemaphores;
         std::vector<VkSemaphore> m_renderFinishedSemaphores;

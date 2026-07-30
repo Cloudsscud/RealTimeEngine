@@ -28,13 +28,16 @@ namespace czx {
 		void createPipelineLayout();
 		void createPipeline();
 		void createCommandBuffers();
+		void freeCommandBuffers();
 		void drawFrame();
+		void recreateSwapChain();
+		void recordCommandBuffer(int imageIndex);
 
 		CzxWindow m_window{WIDTH, HEIGHT, "Hello Vulkan!"};
 		CzxDevice m_device{m_window};
-		CzxSwapChain m_swapChain{ m_device, m_window.getExtent() };
-		VkPipelineLayout m_pipelineLayout;
+		std::unique_ptr<CzxSwapChain> m_swapChain;
 		std::unique_ptr<CzxPipeline> m_pipeline;
+		VkPipelineLayout m_pipelineLayout;
 		std::vector<VkCommandBuffer> m_commandBuffers;
 		std::unique_ptr<CzxModel> m_model;
 	};

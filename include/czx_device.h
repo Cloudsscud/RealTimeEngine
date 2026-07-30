@@ -35,7 +35,7 @@ namespace czx {
 
         // ½û¿½±´ÓëÒÆ¶¯
         CzxDevice(const CzxDevice&) = delete;
-        void operator=(const CzxDevice&) = delete;
+        CzxDevice& operator=(const CzxDevice&) = delete;
         CzxDevice(CzxDevice&&) = delete;
         CzxDevice& operator=(CzxDevice&&) = delete;
 
