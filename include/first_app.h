@@ -4,7 +4,7 @@
 #include <czx_device.h>
 #include <czx_pipeline.h>
 #include <czx_swap_chain.h>
-#include <czx_model.h>
+#include <czx_game_object.h>
 
 // std
 #include <memory>
@@ -24,7 +24,7 @@ namespace czx {
 
 		void run();
 	private:
-		void loadModels();
+		void loadGameObjects();
 		void createPipelineLayout();
 		void createPipeline();
 		void createCommandBuffers();
@@ -32,6 +32,7 @@ namespace czx {
 		void drawFrame();
 		void recreateSwapChain();
 		void recordCommandBuffer(int imageIndex);
+		void renderGameObjects(VkCommandBuffer commandBuffer);
 
 		CzxWindow m_window{WIDTH, HEIGHT, "Hello Vulkan!"};
 		CzxDevice m_device{m_window};
@@ -39,6 +40,6 @@ namespace czx {
 		std::unique_ptr<CzxPipeline> m_pipeline;
 		VkPipelineLayout m_pipelineLayout;
 		std::vector<VkCommandBuffer> m_commandBuffers;
-		std::unique_ptr<CzxModel> m_model;
+		std::vector<CzxGameObject> m_gameObjects;
 	};
 }	// namespace czx

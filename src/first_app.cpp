@@ -1,12 +1,26 @@
 #include <first_app.h>
 
+// libs
+// 弧度制
+#define GLM_FORCE_RADIANS
+// 限定深度缓冲在[0,1]
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
+
 //std
 #include <stdexcept>
 #include <array>
 
 namespace czx {
+	struct SimplePushConstantData {
+		glm::mat2 transform{1.f};	// 默认单位矩阵
+		glm::vec2 offset;
+		alignas(16) glm::vec3 color;	// 推送常量布局要对齐，vec
+	};
+
 	FirstAPP::FirstAPP() {
-		loadModels();
+		loadGameObjects();
 		createPipelineLayout();
 		recreateSwapChain();
 		createCommandBuffers();
@@ -23,7 +37,7 @@ namespace czx {
 		vkDeviceWaitIdle(m_device.device());
 	}
 
-	void FirstAPP::loadModels() {
+	void FirstAPP::loadGameObjects() {
 		// {vector{Vertex{glm::vec2}}}
 		std::vector<CzxModel::Vertex> vertices{
 			{{0.0f,-0.5f}, {1.0f, 0.0f, 0.0f}},
@@ -31,17 +45,35 @@ namespace czx {
 			{{-0.5f, 0.5f},{0.0f, 0.0f, 1.0f}}
 		};
 
-		m_model = std::make_unique<CzxModel>(m_device, vertices);
+		auto m_model = std::make_shared<CzxModel>(m_device, vertices);
+
+		for (int i = 0; i < 10; ++i) {
+			auto triangle = CzxGameObject::createGameObject();
+			triangle.m_model = m_model;
+			triangle.m_color = { .1f * i, .8f, 0.1f + 0.01 * i };
+			triangle.m_transform2d.transform.x = .2f;
+			triangle.m_transform2d.scale = { 1.5f, 0.5f };
+			triangle.m_transform2d.rotation = .25f* glm::two_pi<float>();
+
+			m_gameObjects.push_back(std::move(triangle));
+		}
+
 	}
 
 
 	void FirstAPP::createPipelineLayout() {
+
+		VkPushConstantRange pushConstantRange{};
+		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+		pushConstantRange.offset = 0;
+		pushConstantRange.size = sizeof(SimplePushConstantData);
+
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		pipelineLayoutInfo.setLayoutCount = 0;
 		pipelineLayoutInfo.pSetLayouts = nullptr;
-		pipelineLayoutInfo.pushConstantRangeCount = 0;
-		pipelineLayoutInfo.pPushConstantRanges = nullptr;
+		pipelineLayoutInfo.pushConstantRangeCount = 1;
+		pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 		if (vkCreatePipelineLayout(m_device.device(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create pipeline layout!");
 		}
@@ -106,6 +138,7 @@ namespace czx {
 
 
 	void FirstAPP::recordCommandBuffer(int imageIndex) {
+
 		VkCommandBufferBeginInfo beginInfo{};
 		if (vkBeginCommandBuffer(m_commandBuffers[imageIndex], &beginInfo) != VK_SUCCESS) {
 			throw std::runtime_error("failed to begin record command buffer!");
@@ -120,7 +153,7 @@ namespace czx {
 		renderPassInfo.renderArea.extent = m_swapChain->getSwapChainExtent();
 
 		std::array<VkClearValue, 2> clearValue{};
-		clearValue[0].color = { 0.1f,0.1f,0.1f,0.1f };
+		clearValue[0].color = { 0.01f,0.01f,0.01f,0.1f };
 		clearValue[1].depthStencil = { 1.0f, 0 };
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValue.size());
 		renderPassInfo.pClearValues = clearValue.data();
@@ -147,9 +180,8 @@ namespace czx {
 		vkCmdSetViewport(m_commandBuffers[imageIndex], 0, 1, &viewport);
 		vkCmdSetScissor(m_commandBuffers[imageIndex], 0, 1, &scissor);
 
-		m_pipeline->bind(m_commandBuffers[imageIndex]);
-		m_model->bind(m_commandBuffers[imageIndex]);	// 绑定并绘制vertex buffer数据
-		m_model->draw(m_commandBuffers[imageIndex]);
+		// 绘制调用接口
+		renderGameObjects(m_commandBuffers[imageIndex]);
 
 		vkCmdEndRenderPass(m_commandBuffers[imageIndex]);
 		if (vkEndCommandBuffer(m_commandBuffers[imageIndex]) != VK_SUCCESS) {
@@ -157,6 +189,37 @@ namespace czx {
 		}
 	}
 
+	void FirstAPP::renderGameObjects(VkCommandBuffer commandBuffer) {
+		// update
+		int i = 0;
+		for (auto& obj : m_gameObjects) {
+			i += 1;
+			obj.m_transform2d.rotation = glm::mod(obj.m_transform2d.rotation + 0.001f * i, glm::two_pi<float>());
+		}
+
+		// render
+		// bind vertex buffer后，drawCall之前，推送常量
+		//多个不同常量图形便多次pushConstant 并 drawCall
+		//将多个模型绑定放在一个缓冲区内可以减少大量的drawCall可以优化性能
+		//但是此时不允许每个模型访问各自特有的推送常量
+		m_pipeline->bind(commandBuffer);
+		for (auto& obj : m_gameObjects) {
+
+			SimplePushConstantData push{};
+			push.offset = obj.m_transform2d.transform;
+			push.color = obj.m_color;
+			push.transform = obj.m_transform2d.mat2();
+
+			vkCmdPushConstants(
+				commandBuffer,
+				m_pipelineLayout,
+				VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+				0,
+				sizeof(SimplePushConstantData), &push);
+			obj.m_model->bind(commandBuffer);
+			obj.m_model->draw(commandBuffer);
+		}
+	}
 
 	void FirstAPP::drawFrame() {
 		uint32_t imageIndex;

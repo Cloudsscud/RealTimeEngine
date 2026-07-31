@@ -392,12 +392,12 @@ namespace czx {
         // FIFO，GPU处理快时会闲置，直到下一周期交换链进行图像交换的buffer
 
         //mailbox，GPU满载，丢弃并覆盖较旧的后缓冲，可以降低输入延迟，功耗高
-        for (const auto& availablePresentMode : availablePresentModes) {
-            if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
-                std::cout << "Present mode: Mailbox" << std::endl;
-                return availablePresentMode;
-            }
-        }
+        //for (const auto& availablePresentMode : availablePresentModes) {
+        //    if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
+        //        std::cout << "Present mode: Mailbox" << std::endl;
+        //        return availablePresentMode;
+        //    }
+        //}
 
         // immediate立即模式不与刷新同步，更新图像无同步，高功耗，撕裂；了解性能和maxFPS用
         // for (const auto &availablePresentMode : availablePresentModes) {
