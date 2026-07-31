@@ -40,6 +40,11 @@ namespace czx {
         VkResult acquireNextImage(uint32_t* imageIndex);
         VkResult submitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex);
 
+        bool compareSwapChainFormats(const CzxSwapChain& swapChain)const {
+            return swapChain.m_swapChainDepthFormat == m_swapChainDepthFormat &&
+                swapChain.m_swapChainImageFormat == m_swapChainImageFormat;
+        }
+
     private:
         void init();
         void createSwapChain();
@@ -57,6 +62,7 @@ namespace czx {
         VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
         VkFormat m_swapChainImageFormat;
+        VkFormat m_swapChainDepthFormat;
         VkExtent2D m_swapChainExtent;
 
         std::vector<VkFramebuffer> m_swapChainFramebuffers;

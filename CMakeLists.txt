@@ -77,7 +77,9 @@ set(ENGINE_SOURCES
     src/czx_pipeline.cpp
     src/czx_swap_chain.cpp
     src/czx_model.cpp
-    src/czx_game_object.cpp
+    src/czx_renderer.cpp
+    src/simple_render_system.cpp
+    
 )
 
 set(ENGINE_HEADERS
@@ -88,6 +90,8 @@ set(ENGINE_HEADERS
     include/czx_swap_chain.h
     include/czx_model.h
     include/czx_game_object.h
+    include/czx_renderer.h
+    include/simple_render_system.h
 )
 
 set(ENGINE_RESOURCES

@@ -303,6 +303,7 @@ namespace czx {
 
     void CzxSwapChain::createDepthResources() {
         VkFormat depthFormat = findDepthFormat();
+        m_swapChainDepthFormat = depthFormat;
         VkExtent2D swapChainExtent = getSwapChainExtent();
 
         m_depthImages.resize(imageCount());
