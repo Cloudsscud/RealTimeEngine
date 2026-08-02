@@ -19,6 +19,7 @@ set(dependencies_dir "D:/A1_Project_C_Cpp/Dependencies" CACHE PATH "Path to depe
 set(VULKAN_SDK "${dependencies_dir}/vulkan/VulkanSDK/1.4.350.0" CACHE PATH "Vulkan SDK path")
 set(GLM_DIR "${dependencies_dir}/glm" CACHE PATH "GLM directory")
 set(GLFW_SOURCE_DIR "${dependencies_dir}/GLFW/glfw-3.4/glfw-3.4" CACHE PATH "GLFW source directory")
+set(RAPID_OBJ_DIR "${dependencies_dir}/rapidobj" CACHE PATH "rapidobj source directory")
 
 # 查找 glslc 编译器（使用你compile.bat中的路径）
 find_program(GLSL_COMPILER
@@ -80,6 +81,7 @@ set(ENGINE_SOURCES
     src/czx_renderer.cpp
     src/czx_camera.cpp
     src/simple_render_system.cpp
+    src/keyboard_movement_controller.cpp
     
 )
 
@@ -93,7 +95,9 @@ set(ENGINE_HEADERS
     include/czx_game_object.h
     include/czx_renderer.h
     include/czx_camera.h
+    include/czx_utils.h
     include/simple_render_system.h
+    include/keyboard_movement_controller.h
 )
 
 set(ENGINE_RESOURCES
@@ -124,6 +128,7 @@ target_include_directories(RealTimeEngine PRIVATE
     include
     ${VULKAN_SDK}/Include
     ${GLM_DIR}
+    ${RAPID_OBJ_DIR}/include
 )
 
 # 链接库

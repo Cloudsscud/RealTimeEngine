@@ -26,6 +26,8 @@ namespace czx {
 		// 获取当前窗口尺寸
 		VkExtent2D getExtent() { return { static_cast<uint32_t>(m_width), static_cast<uint32_t>(m_height) }; }  // 将当前窗口尺寸转换成Vulkan交换链所需的范围结构。
 
+		GLFWwindow* getGLFWwindow() const { return m_window; }
+
 		// 用于重建交换链：检查窗口是否被调整大小，重置标志
 		bool wasWindowResized() { return m_framebufferResized; }  // 返回窗口是否发生过尺寸变化，供外部决定是否重建交换链。
 		void resetWindowResizedFlag() { m_framebufferResized = false; }  // 重置尺寸变化标志，避免重复触发重建逻辑。

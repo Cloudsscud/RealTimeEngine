@@ -2,6 +2,7 @@
 
 #include <czx_camera.h>
 #include <simple_render_system.h>
+#include <keyboard_movement_controller.h>
 
 // libs
 // 弧度制
@@ -12,6 +13,7 @@
 #include <glm/gtc/constants.hpp>
 
 //std
+#include <chrono>
 #include <stdexcept>
 #include <array>
 
@@ -29,14 +31,24 @@ namespace czx {
 	void FirstAPP::run() {
 		SimpleRenderSystem simpleRenderSystem{ m_device, m_renderer.getSwapChainRenderPass() };
         CzxCamera camera{};
-        //camera.setViewDirection(glm::vec3(0.f), glm::vec3(0.5f, 0.f, 1.f));
-        camera.setViewTarget(glm::vec3(-1.f, -2.f, 2.f), glm::vec3(0.f, 0.f, 2.5f));
+
+        auto viewObject = CzxGameObject::createGameObject();    // 仅用于观测，无实体
+        KeyboardMovementController cameraController{};
+
+        auto currentTime = std::chrono::high_resolution_clock::now();
 
 		while (!m_window.shouldClose()) {
 			glfwPollEvents();	// 检查处理所有窗口事件
 
+            // 处理事件可能阻塞
+            auto newTime = std::chrono::high_resolution_clock::now();
+            auto frameTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
+            currentTime = newTime;
+
+            cameraController.moveInPlaneXZ(m_window.getGLFWwindow(), frameTime, viewObject);
+            camera.setViewYXZ(viewObject.m_transform.translation, viewObject.m_transform.rotation);
+
             float aspect = m_renderer.getAspectRatio();
-            //camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
             camera.setPersepctiveProjection(glm::radians(50.f), aspect, 0.1f, 10.f);
 
 			if (auto commandBuffer = m_renderer.beginFrame()) {
@@ -50,74 +62,15 @@ namespace czx {
 		vkDeviceWaitIdle(m_device.device());
 	}
 
-    // temporary helper function, creates a 1x1x1 cube centered at offset
-    std::unique_ptr<CzxModel> createCubeModel(CzxDevice& device, glm::vec3 offset) {
-        std::vector<CzxModel::Vertex> vertices{
-
-            // left face (white)
-            {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-            {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-            {{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
-            {{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-            {{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
-            {{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-
-            // right face (yellow)
-            {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-            {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
-            {{.5f, -.5f, .5f}, {.8f, .8f, .1f}},
-            {{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-            {{.5f, .5f, -.5f}, {.8f, .8f, .1f}},
-            {{.5f, .5f, .5f}, {.8f, .8f, .1f}},
-
-            // top face (orange, remember y axis points down)
-            {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-            {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-            {{-.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-            {{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-            {{.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-            {{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-
-            // bottom face (red)
-            {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-            {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-            {{-.5f, .5f, .5f}, {.8f, .1f, .1f}},
-            {{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-            {{.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-            {{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-
-            // nose face (blue)
-            {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-            {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-            {{-.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-            {{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-            {{.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-            {{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-
-            // tail face (green)
-            {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-            {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-            {{-.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-            {{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-            {{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-            {{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-
-        };
-        for (auto& v : vertices) {
-            v.position += offset;
-        }
-        return std::make_unique<CzxModel>(device, vertices);
-    }
-
 	// 将需要展示的模型实例与相关变换数据加载到场景中。
 	void FirstAPP::loadGameObjects() {
-        std::shared_ptr<CzxModel> model = createCubeModel(m_device, { .0f,.0f,.0f });
+        std::shared_ptr<CzxModel> model = CzxModel::createModelFromFile(m_device, "D:/PG/RealTimeEngine/models/WhiteWeddingDressGirl/WhiteWeddingDressGirl.obj");
 
-        auto cube = CzxGameObject::createGameObject();
-        cube.m_model = model;
-        cube.m_transform.translation = { .0f,.0f, 2.5f };
-        cube.m_transform.scale = { .5f,.5f, .5f };
-        m_gameObjects.push_back(std::move(cube));
+        auto gameObj = CzxGameObject::createGameObject();
+		gameObj.m_model = model;
+		gameObj.m_transform.translation = { .0f,.0f, 2.5f };
+		gameObj.m_transform.scale = { .5f,.5f, .5f };
+        m_gameObjects.push_back(std::move(gameObj));
 
 	}
 }	// namespace czx

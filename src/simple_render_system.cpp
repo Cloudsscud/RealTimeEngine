@@ -65,12 +65,6 @@ namespace czx {
 	void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<CzxGameObject>& gameObjects, const CzxCamera& camera) {
 		auto projectionView = camera.getProjection() * camera.getView();
 
-		// update
-		for (auto& obj : gameObjects) {
-			obj.m_transform.rotation.y = glm::mod(obj.m_transform.rotation.y + 0.01f, glm::two_pi<float>());
-			obj.m_transform.rotation.x = glm::mod(obj.m_transform.rotation.x + 0.005f, glm::two_pi<float>());
-		}
-
 		// render
 		// bind vertex buffer后，drawCall之前，推送常量
 		//多个不同常量图形便多次pushConstant 并 drawCall

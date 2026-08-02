@@ -11,6 +11,8 @@
 
 // std
 #include <vector>
+#include <string>
+#include <memory>
 
 namespace czx {
 
@@ -19,28 +21,51 @@ namespace czx {
 	public:
 
 		struct Vertex {
-			glm::vec3 position;  // 顶点位置
-			glm::vec3 color;  // 顶点颜色
+			glm::vec3 position{};  // 顶点位置
+			glm::vec3 color{};  // 顶点颜色
+			glm::vec3 normal{};	// 法线
+			glm::vec2 uv{};	// 纹理坐标
 
 			static std::vector<VkVertexInputBindingDescription> getBindingDescriptions();  // 返回顶点输入绑定描述，告诉Vulkan顶点数据如何组织。
 			static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();  // 返回顶点属性描述，告诉Vulkan位置和颜色分别对应哪些数据成员。
+
+			bool operator==(const Vertex& other)const {
+				return position == other.position && color == other.color && normal == other.normal && uv == other.uv;
+			}
 		};
 
-		CzxModel(CzxDevice& device, const std::vector<Vertex>& vertices);  // 根据顶点数据在GPU上创建对应的顶点缓冲区。
+		// 辅助index和vertex均复制进buffer
+		struct Builder {
+			std::vector<Vertex> vertices{};	 // 顶点
+			std::vector<uint32_t> indices{}; // 索引
+
+			void loadModel(const std::string& filePath);
+		};
+
+		CzxModel(CzxDevice& device, const CzxModel::Builder& builder);  // 根据顶点和索引数据在GPU上创建对应的顶点、索引缓冲区。
 		~CzxModel();
 
 		CzxModel(const CzxModel&) = delete;
 		CzxModel& operator=(const CzxModel&) = delete;
+
+		// 从文件加载模型
+		static std::unique_ptr<CzxModel> createModelFromFile(CzxDevice& device, const std::string& filePath);
 
 		void bind(VkCommandBuffer commandBuffer);  // 将顶点缓冲绑定到当前命令缓冲区，准备绘制。
 		void draw(VkCommandBuffer commandBuffer);  // 发出一次绘制调用，使用当前绑定的顶点数据。
 
 	private:
 		void createVertexBuffer(const std::vector<Vertex>& vertices);  // 创建并填充顶点缓冲区。
+		void createIndexBuffer(const std::vector<uint32_t>& indices);  // 创建并填充索引缓冲区。
 
 		CzxDevice& m_device;  // 保存设备引用，便于访问逻辑设备和内存分配接口。
 		VkBuffer m_vertexBuffer;  // 顶点缓冲句柄。
 		VkDeviceMemory m_vertexBufferMemory;  // 顶点缓冲对应的内存对象。
 		uint32_t m_vertexCount;  // 顶点数量，用于绘制调用时指定顶点个数。
+
+		bool m_hasIndexBuffer = false;	// 用于判断是否用到索引缓冲
+		VkBuffer m_indexBuffer;  // 索引缓冲句柄。
+		VkDeviceMemory m_indexBufferMemory;  // 索引缓冲对应的内存对象。
+		uint32_t m_indexCount;  // 顶点数量，用于绘制调用时指定索引个数。
 	};
 }	// namespace czx
