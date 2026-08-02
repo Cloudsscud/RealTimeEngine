@@ -1,4 +1,4 @@
-#include <czx_renderer.h>
+﻿#include <czx_renderer.h>
 
 //std
 #include <stdexcept>
@@ -6,15 +6,18 @@
 
 namespace czx {
 
+	// 构造函数会初始化交换链与命令缓冲区，准备开始一帧一帧的渲染流程。
 	CzxRenderer::CzxRenderer(CzxWindow& window, CzxDevice& device) :m_window(window), m_device(device)
 	{
 		recreateSwapChain();
 		createCommandBuffers();
 	}
+	// 析构函数释放命令缓冲区资源，避免渲染器对象销毁后留下未释放的句柄。
 	CzxRenderer::~CzxRenderer() {
 		freeCommandBuffers();
 	}
 
+	// 在窗口大小变化或交换链失效时，重新创建交换链并同步渲染资源。
 	void CzxRenderer::recreateSwapChain() {
 		auto extent = m_window.getExtent();
 		while (extent.width == 0 || extent.height == 0) {
@@ -33,13 +36,14 @@ namespace czx {
 
 			if (!oldSwapChain->compareSwapChainFormats(*m_swapChain.get())) {
 				throw std::runtime_error("swap chain image/depth format has changed!");
-				// �߽紦�������ûص�����֪ͨapp�����˲�������Ⱦͨ��
+				// 边界处理：可用回调函数通知app创建了不兼容渲染通道
 			}
 
 		}
 	}
 
 
+	// 为多帧渲染创建一组可复用的命令缓冲区。
 	void CzxRenderer::createCommandBuffers() {
 		m_commandBuffers.resize(CzxSwapChain::MAX_FRAMES_IN_FLIGHT);
 		VkCommandBufferAllocateInfo allocateInfo{};
@@ -53,6 +57,7 @@ namespace czx {
 		}
 	}
 
+	// 释放命令缓冲区资源，通常在渲染器销毁或重建时调用。
 	void CzxRenderer::freeCommandBuffers() {
 		vkFreeCommandBuffers(
 			m_device.device(),
@@ -62,13 +67,14 @@ namespace czx {
 		m_commandBuffers.clear();
 	}
 
+	// 开始一帧渲染，获取当前可用交换链图像并开始记录命令。
 	VkCommandBuffer CzxRenderer::beginFrame() {
 		assert(!m_isFrameStarted && "Cannot call beginFrame while already in progress");
  
 		auto result = m_swapChain->acquireNextImage(&m_currentImageIndex);
 		if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 			recreateSwapChain();
-			return nullptr;	// ֡δ�ܳɹ�����
+			return nullptr;	// 帧未能成功启动
 		}
 
 		if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -88,6 +94,7 @@ namespace czx {
 		return commandBuffer;
 	}
 
+	// 结束当前帧的命令记录，并提交渲染结果到交换链进行呈现。
 	void CzxRenderer::endFrame() {
 		assert(m_isFrameStarted && "Cannot call endFrame while frame not in progress");
 		auto commandBuffer = getCurrentCommandBuffer();
@@ -109,6 +116,7 @@ namespace czx {
 		m_currentFrameIndex = (m_currentFrameIndex+1)%CzxSwapChain::MAX_FRAMES_IN_FLIGHT;
 	}
 
+	// 开始当前交换链图像对应的渲染通道，并设置视口与裁剪区域。
 	void CzxRenderer::beginSwapChainRenderPass(VkCommandBuffer commandbuffer) {
 		assert(m_isFrameStarted && "Cannot call beginSwapChainRenderPass while frame not in progress");
 		assert(commandbuffer == getCurrentCommandBuffer() && "Cannot begin render pass on command buffer from a different frame");
@@ -129,27 +137,28 @@ namespace czx {
 
 		vkCmdBeginRenderPass(commandbuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-		// ע�⣺�ӿ���ü��̶��ڹ����У���֧�ִ���Resize
-		//�����ӿڣ���NDC�µ�����ӳ�䵽֡�������������
+		// 注意：视口与裁剪固定在管线中，不支持窗口Resize
+		//配置视口，将NDC下的坐标映射到帧缓冲的像素区域
 		VkViewport viewport{};
-		viewport.x = 0.0f;	// �ӿ����Ͻ���֡���������Ϊ0,0
+		viewport.x = 0.0f;	// 视口左上角在帧缓冲的坐标为0,0
 		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(m_swapChain->getSwapChainExtent().width);	// �ӿڿ���
+		viewport.width = static_cast<float>(m_swapChain->getSwapChainExtent().width);	// 视口宽高
 		viewport.height = static_cast<float>(m_swapChain->getSwapChainExtent().height);
-		viewport.minDepth = 0.0f;	// NDC��z[-1,1]ӳ�䵽֡��������[0,1]
+		viewport.minDepth = 0.0f;	// NDC的z[-1,1]映射到帧缓冲的深度[0,1]
 		viewport.maxDepth = 1.0f;
-		// ��Ļ�ϵ�x = viewport.x+(NDC.x+1)/2*width
-		// ��Ļ�ϵ�y = viewport.y+(1-NDC.y)/2*width	// ���Ͻ�ԭ�㣬y������
+		// 屏幕上的x = viewport.x+(NDC.x+1)/2*width
+		// 屏幕上的y = viewport.y+(1-NDC.y)/2*width	// 左上角原点，y轴向下
 
-		// ���òü����Σ��޶���Ⱦ���������ڵ�����
+		// 配置裁剪矩形，限定渲染矩形区域内的像素
 		VkRect2D scissor{};
-		scissor.offset = { 0, 0 };			// �ü����ε����Ͻ�����int32_t
-		scissor.extent = { m_swapChain->getSwapChainExtent() };	// uint32_t��Ⱦ�������ڵ�����->���ü�
+		scissor.offset = { 0, 0 };			// 裁剪矩形的左上角坐标int32_t
+		scissor.extent = { m_swapChain->getSwapChainExtent() };	// uint32_t渲染整个窗口的像素->不裁剪
 
 		vkCmdSetViewport(commandbuffer, 0, 1, &viewport);
 		vkCmdSetScissor(commandbuffer, 0, 1, &scissor);
 	}
 
+	// 结束当前渲染通道，后续命令会进入下一个渲染阶段或结束。
 	void CzxRenderer::endSwapChainRenderPass(VkCommandBuffer commandbuffer) {
 		assert(m_isFrameStarted && "Cannot call endSwapChainRenderPass while frame not in progress");
 		assert(commandbuffer == getCurrentCommandBuffer() && "Cannot end render pass on command buffer from a different frame");

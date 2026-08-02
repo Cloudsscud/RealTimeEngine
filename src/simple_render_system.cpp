@@ -1,9 +1,9 @@
-#include <simple_render_system.h>
+﻿#include <simple_render_system.h>
 
 // libs
-// ������
+// 弧度制
 #define GLM_FORCE_RADIANS
-// �޶���Ȼ�����[0,1]
+// 限定深度缓冲在[0,1]
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
@@ -13,23 +13,26 @@
 #include <array>
 
 namespace czx {
+	// 推送常量数据结构，用来把每个对象的变换和颜色传递给着色器。
 	struct SimplePushConstantData {
-		glm::mat2 transform{ 1.f };	// Ĭ�ϵ�λ����
-		glm::vec2 offset;
-		alignas(16) glm::vec3 color;	// ���ͳ�������Ҫ���룬vec
+		glm::mat4 transform{ 1.f };	// 模型变换矩阵，默认单位矩阵
+		alignas(16) glm::vec3 color;	// 推送常量布局要对齐，vec
 	};
 
+	// 构造函数会先创建管线布局，再根据当前渲染通道创建具体的图形管线。
 	SimpleRenderSystem::SimpleRenderSystem(CzxDevice& device, VkRenderPass renderPass) :m_device{device}
 	{
 		createPipelineLayout();
 		createPipeline(renderPass);
 	}
 
+	// 析构函数释放管线布局资源，避免内存泄漏。
 	SimpleRenderSystem::~SimpleRenderSystem() {
 		vkDestroyPipelineLayout(m_device.device(), m_pipelineLayout, nullptr);
 	}
 
 
+	// 为当前渲染系统创建管线布局，定义着色器可访问的推送常量范围。
 	void SimpleRenderSystem::createPipelineLayout() {
 		VkPushConstantRange pushConstantRange{};
 		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -47,6 +50,7 @@ namespace czx {
 		}
 	}
 
+	// 使用当前渲染通道创建图形管线，后续绘制会使用这条管线。
 	void SimpleRenderSystem::createPipeline(VkRenderPass renderPass) {
 		assert(m_pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout");
 
@@ -57,26 +61,27 @@ namespace czx {
 		m_pipeline = std::make_unique<CzxPipeline>(m_device, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv", pipelineConfig);
 	}
 
-	void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<CzxGameObject>& gameObjects) {
+	// 遍历所有游戏对象，更新其变换并依次绑定顶点缓冲和提交绘制调用。
+	void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<CzxGameObject>& gameObjects, const CzxCamera& camera) {
+		auto projectionView = camera.getProjection() * camera.getView();
+
 		// update
-		int i = 0;
 		for (auto& obj : gameObjects) {
-			i += 1;
-			obj.m_transform2d.rotation = glm::mod(obj.m_transform2d.rotation + 0.001f * i, glm::two_pi<float>());
+			obj.m_transform.rotation.y = glm::mod(obj.m_transform.rotation.y + 0.01f, glm::two_pi<float>());
+			obj.m_transform.rotation.x = glm::mod(obj.m_transform.rotation.x + 0.005f, glm::two_pi<float>());
 		}
 
 		// render
-		// bind vertex buffer��drawCall֮ǰ�����ͳ���
-		//�����ͬ����ͼ�α���pushConstant �� drawCall
-		//�����ģ�Ͱ󶨷���һ���������ڿ��Լ��ٴ�����drawCall�����Ż�����
-		//���Ǵ�ʱ������ÿ��ģ�ͷ��ʸ������е����ͳ���
+		// bind vertex buffer后，drawCall之前，推送常量
+		//多个不同常量图形便多次pushConstant 并 drawCall
+		//将多个模型绑定放在一个缓冲区内可以减少大量的drawCall可以优化性能
+		//但是此时不允许每个模型访问各自特有的推送常量
 		m_pipeline->bind(commandBuffer);
 		for (auto& obj : gameObjects) {
 
 			SimplePushConstantData push{};
-			push.offset = obj.m_transform2d.transform;
 			push.color = obj.m_color;
-			push.transform = obj.m_transform2d.mat2();
+			push.transform = projectionView * obj.m_transform.mat4();
 
 			vkCmdPushConstants(
 				commandBuffer,

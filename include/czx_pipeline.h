@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <czx_device.h>
 
@@ -8,58 +8,59 @@
 
 namespace czx {
 
-	// ¹ÜÏßÅäÖÃĞÅÏ¢£¬·½±ãÓ¦ÓÃ²ã¿ìËÙ¹ÜÀí¹ÜÏß£¬ÔÊĞí¶à¹ÜÏßÊ¹ÓÃÏàÍ¬ÅäÖÃ£¬´´½¨¹ÜÏßºó¹Ì¶¨
+	// ç®¡çº¿é…ç½®ä¿¡æ¯ï¼Œæ–¹ä¾¿åº”ç”¨å±‚å¿«é€Ÿç®¡ç†ç®¡çº¿ï¼Œå…è®¸å¤šä¸ªç®¡çº¿å¤ç”¨ç›¸åŒé…ç½®ï¼Œåˆ›å»ºåé€šå¸¸ä¸å†ä¿®æ”¹ã€‚
 	struct PipelineConfigInfo{
 		PipelineConfigInfo() = default;
 		PipelineConfigInfo(const PipelineConfigInfo&) = delete;
 		PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
 
-		VkPipelineViewportStateCreateInfo viewportInfo;
-		VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;	// ÓÃÓÚÅäÖÃÊäÈë×°Åä½×¶ÎµÄ½á¹¹Ìå£¬½«ÊäÈëÊı¾İ×é×°ÎªÍ¼Ôª£¬´´½¨ºó¹Ì¶¨ÍØÆË£¬²»Í¬ÍØÆËĞè¶à¹ÜÏß
-		VkPipelineRasterizationStateCreateInfo rasterizationInfo;	// ÓÃÓÚ¿ØÖÆ½«¶à±ßĞÎ×ª»»ÎªÆ¬Ôª£¬´´½¨ºó¹Ì¶¨£¬²»Í¬Æ¬ÔªÀàĞÍĞè¶à¹ÜÏß
-		VkPipelineMultisampleStateCreateInfo multisampleInfo;		// ¿ØÖÆ¶àÖØ²ÉÑù¿¹¾â³İMSAA
-		VkPipelineColorBlendAttachmentState colorBlendAttachment;	// ¿ØÖÆµ¥Ö¡»º³å¸½¼ş(RenderTarget)µÄ»ìºÏ¹«Ê½
-		VkPipelineColorBlendStateCreateInfo colorBlendInfo;			// ·â×°¸½¼ş£¬Ê¹ÓÃÈ«¾Ö»ìºÏ³£Á¿
-		VkPipelineDepthStencilStateCreateInfo depthStencilInfo;		// ¿ØÖÆÉî¶È²âÊÔ¡¢Éî¶ÈĞ´Èë¡¢±È½Ï²Ù×÷·û¡¢Ä£°å²âÊÔ£¬´´½¨ºó¹Ì¶¨£¬²»Í¬Éî¶È²âÊÔĞè¶à¹ÜÏß
-		std::vector<VkDynamicState> dynamicStateEnables;
-		VkPipelineDynamicStateCreateInfo dynamicStateInfo;
-		// Ä¬ÈÏ¹ÜÏßÅäÖÃ²»´¦Àí¹ÜÏß²¼¾ÖÓëäÖÈ¾Í¨µÀ£¬ÔÚº¯ÊıÍâÉèÖÃ
-		VkPipelineLayout pipelineLayout = nullptr;					// ÃèÊö×ÊÔ´°ó¶¨²¼¾Ö
-		VkRenderPass renderPass = nullptr;							// ÃèÊöÖ¡»º³åµÄ¸ñÊ½¡¢²ÉÑùÊı¡¢¼ÓÔØ´æ´¢²Ù×÷
-		uint32_t subpass = 0;										// ¶ÔÓ¦RenderPassÄ³¸ö×ÓÍ¨µÀ
+		VkPipelineViewportStateCreateInfo viewportInfo;  // æè¿°è§†å£å’Œè£å‰ªçŸ©å½¢èŒƒå›´ï¼Œå†³å®šæ¸²æŸ“è¾“å‡ºåŒºåŸŸã€‚
+		VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;  // ç”¨äºé…ç½®è¾“å…¥è£…é…é˜¶æ®µï¼ŒæŠŠé¡¶ç‚¹æ•°æ®ç»„è£…æˆå›¾å…ƒï¼Œåˆ›å»ºåæ‹“æ‰‘é€šå¸¸å›ºå®šã€‚
+		VkPipelineRasterizationStateCreateInfo rasterizationInfo;  // ç”¨äºæ§åˆ¶å‡ ä½•ä½“å¦‚ä½•è¢«å…‰æ …åŒ–ä¸ºç‰‡å…ƒï¼Œå†³å®šæ˜¯å¦å¼€å¯èƒŒé¢å‰”é™¤ç­‰ç‰¹æ€§ã€‚
+		VkPipelineMultisampleStateCreateInfo multisampleInfo;  // æ§åˆ¶å¤šé‡é‡‡æ ·æŠ—é”¯é½¿ç­‰é‡‡æ ·æ–¹å¼ã€‚
+		VkPipelineColorBlendAttachmentState colorBlendAttachment;  // æ§åˆ¶å•ä¸ªé¢œè‰²é™„ä»¶çš„æ··åˆå…¬å¼å’Œå†™å…¥æ©ç ã€‚
+		VkPipelineColorBlendStateCreateInfo colorBlendInfo;  // å°è£…æ‰€æœ‰é¢œè‰²é™„ä»¶çš„æ··åˆçŠ¶æ€ï¼Œä½¿ç”¨å…¨å±€æ··åˆå¸¸é‡ã€‚
+		VkPipelineDepthStencilStateCreateInfo depthStencilInfo;  // æ§åˆ¶æ·±åº¦æµ‹è¯•ã€æ·±åº¦å†™å…¥ã€æ¯”è¾ƒæ“ä½œä»¥åŠæ¨¡æ¿æµ‹è¯•ã€‚
+		std::vector<VkDynamicState> dynamicStateEnables;  // å…è®¸åœ¨ç®¡çº¿åˆ›å»ºååŠ¨æ€ä¿®æ”¹çš„çŠ¶æ€åˆ—è¡¨ï¼Œå¦‚è§†å£å’Œè£å‰ªçŸ©å½¢ã€‚
+		VkPipelineDynamicStateCreateInfo dynamicStateInfo;  // æè¿°åŠ¨æ€çŠ¶æ€çš„é…ç½®ç»“æ„ä½“ã€‚
+		// é»˜è®¤ç®¡çº¿é…ç½®ä¸å¤„ç†ç®¡çº¿å¸ƒå±€ä¸æ¸²æŸ“é€šé“ï¼Œåœ¨å‡½æ•°å¤–è®¾ç½®
+		VkPipelineLayout pipelineLayout = nullptr;  // æè¿°èµ„æºç»‘å®šå¸ƒå±€ï¼Œå‘Šè¯‰ç®¡çº¿å¦‚ä½•è®¿é—®ç€è‰²å™¨èµ„æºã€‚
+		VkRenderPass renderPass = nullptr;  // æè¿°å¸§ç¼“å†²çš„æ ¼å¼ã€é‡‡æ ·æ•°å’ŒåŠ è½½å­˜å‚¨æ“ä½œã€‚
+		uint32_t subpass = 0;  // æŒ‡å®šæ¸²æŸ“é€šé“ä¸­çš„å­é€šé“ç´¢å¼•ã€‚
 	};
 
+	// è´Ÿè´£ä»SPIR-Vç€è‰²å™¨æ–‡ä»¶ä¸­åˆ›å»ºå¹¶ç®¡ç†Vulkanå›¾å½¢ç®¡çº¿ï¼Œå°è£…ç€è‰²å™¨æ¨¡å—å’Œæ¸²æŸ“çŠ¶æ€é…ç½®ã€‚
 	class CzxPipeline {
 	public:
 		CzxPipeline(
 			CzxDevice& device,
 			const std::string& vertFilePath,
 			const std::string& fragFilePath,
-			const PipelineConfigInfo& configInfo);
+			const PipelineConfigInfo& configInfo);  // æ ¹æ®ç€è‰²å™¨è·¯å¾„å’Œé…ç½®åˆ›å»ºå›¾å½¢ç®¡çº¿ã€‚
 
-		~CzxPipeline();
+		~CzxPipeline();  // é”€æ¯ç€è‰²å™¨æ¨¡å—å’Œå›¾å½¢ç®¡çº¿å¯¹è±¡ã€‚
 
-		// ½ûÓÃ¸´ÖÆ
-		CzxPipeline(const CzxPipeline&) = delete;
-		CzxPipeline& operator=(const CzxPipeline&) = delete;
+		// ç¦ç”¨å¤åˆ¶
+		CzxPipeline(const CzxPipeline&) = delete;  // ç¦æ­¢æ‹·è´ï¼Œé¿å…å¤šä¸ªå¯¹è±¡åŒæ—¶æŒæœ‰åŒä¸€ç®¡çº¿èµ„æºã€‚
+		CzxPipeline& operator=(const CzxPipeline&) = delete;  // ç¦æ­¢èµ‹å€¼ï¼Œé˜²æ­¢é‡å¤æ¸…ç†ç›¸åŒå¥æŸ„ã€‚
 
-		void bind(VkCommandBuffer commandBuffer);
+		void bind(VkCommandBuffer commandBuffer);  // å°†å½“å‰ç®¡çº¿ç»‘å®šåˆ°å‘½ä»¤ç¼“å†²åŒºï¼Œåç»­ç»˜åˆ¶ä¼šä½¿ç”¨è¿™æ¡ç®¡çº¿ã€‚
 
-		static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
+		static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);  // æä¾›ä¸€ç»„é»˜è®¤çš„ç®¡çº¿é…ç½®ï¼Œä¾›è°ƒç”¨æ–¹å¿«é€Ÿåˆå§‹åŒ–ã€‚
 
 	private:
-		static std::vector<char> readFile(const std::string& filePath);
+		static std::vector<char> readFile(const std::string& filePath);  // ä»ç£ç›˜è¯»å–SPIR-Vç€è‰²å™¨æ–‡ä»¶å†…å®¹ã€‚
 
 		void createGraphicsPipeline(
 			const std::string& vertFilePath,
 			const std::string& fragFilePath,
-			const PipelineConfigInfo& configInfo);
+			const PipelineConfigInfo& configInfo);  // ç»„è£…ç€è‰²å™¨ã€é¡¶ç‚¹è¾“å…¥å’Œæ¸²æŸ“çŠ¶æ€ï¼ŒçœŸæ­£åˆ›å»ºç®¡çº¿ã€‚
 
-		void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
+		void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);  // å°†ç€è‰²å™¨å­—èŠ‚ç åŒ…è£…æˆVulkanç€è‰²å™¨æ¨¡å—ã€‚
 
-		CzxDevice& m_device;	// ÒıÓÃ´æ´¢£¬¹ÜÏßÒÀÀµÓÚÉè±¸£¬¹Ê³ÉÔ±±äÁ¿deviceÉúÃüÖÜÆÚ¸ü³¤
-		VkPipeline m_graphicsPipeline;	// vulkanÍ¼ĞÎ¹ÜÏßµÄ¾ä±ú
-		VkShaderModule m_vertShaderModule;	// ¶¥µã×ÅÉ«Æ÷µÄvk×ÅÉ«Æ÷Ä£¿é
-		VkShaderModule m_fragShaderModule;	// Æ¬¶Î×ÅÉ«Æ÷µÄvk×ÅÉ«Æ÷Ä£¿é
+		CzxDevice& m_device;  // å¼•ç”¨è®¾å¤‡å¯¹è±¡ï¼Œæ‰€æœ‰ç®¡çº¿èµ„æºéƒ½ä¾æ‰˜äºå®ƒçš„é€»è¾‘è®¾å¤‡å¥æŸ„ã€‚
+		VkPipeline m_graphicsPipeline;  // Vulkanå›¾å½¢ç®¡çº¿å¥æŸ„ã€‚
+		VkShaderModule m_vertShaderModule;  // é¡¶ç‚¹ç€è‰²å™¨æ¨¡å—å¥æŸ„ã€‚
+		VkShaderModule m_fragShaderModule;  // ç‰‡æ®µç€è‰²å™¨æ¨¡å—å¥æŸ„ã€‚
 	};
 }	// namespace czx

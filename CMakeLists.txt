@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.8)
 
 # 如果支持，请为 MSVC 编译器启用热重载。
 if (POLICY CMP0141)
@@ -78,6 +78,7 @@ set(ENGINE_SOURCES
     src/czx_swap_chain.cpp
     src/czx_model.cpp
     src/czx_renderer.cpp
+    src/czx_camera.cpp
     src/simple_render_system.cpp
     
 )
@@ -91,6 +92,7 @@ set(ENGINE_HEADERS
     include/czx_model.h
     include/czx_game_object.h
     include/czx_renderer.h
+    include/czx_camera.h
     include/simple_render_system.h
 )
 

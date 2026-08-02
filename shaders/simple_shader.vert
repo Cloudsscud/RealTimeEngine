@@ -1,17 +1,19 @@
 #version 450
 
-layout(location = 0) in vec2 position;
+layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 color;
 
-// ÍÆËÍµÄ³£Á¿Êı¾İË³ĞòÒªÒ»ÖÂ
+layout(location = 0) out vec3 fragColor;
+
+// æ¨é€çš„å¸¸é‡æ•°æ®é¡ºåºè¦ä¸€è‡´
 layout(push_constant) uniform Push{
-	mat2 transform;
-	vec2 offset;
+	mat4 transform;
 	vec3 color;
 } push;
 
 
-// Ã¿¸ö¶¥µã¶¼ÒªÔËĞĞ
+// æ¯ä¸ªé¡¶ç‚¹éƒ½è¦è¿è¡Œ
 void main(){
-	gl_Position = vec4(push.transform * position + push.offset, 0.0, 1.0);
+	gl_Position = push.transform * vec4(position, 1.f);
+	fragColor = color;
 }
