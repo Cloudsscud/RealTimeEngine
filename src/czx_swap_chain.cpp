@@ -160,11 +160,11 @@ namespace czx {
         createInfo.imageFormat = surfaceFormat.format;  // 设置交换链图像格式。
         createInfo.imageColorSpace = surfaceFormat.colorSpace;  // 设置颜色空间。
         createInfo.imageExtent = extent;  // 设置交换链的实际宽高。
-        createInfo.imageArrayLayers = 1;  // 这里使用单层2D图像，适合普通显示目标。
+        createInfo.imageArrayLayers = 1;  // 这里使用单层图像，适合普通显示目标。
         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;  // 说明这些图像会被当作颜色附件用于渲染。
 
         QueueFamilyIndices indices = m_device.findPhysicalQueueFamilies();  // 获取图形和呈现队列族索引。
-        uint32_t queueFamilyIndices[] = { indices.graphicsFamily, indices.presentFamily };  // 把两个队列族索引组合成数组。
+        uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value()};  // 把两个队列族索引组合成数组。
 
         if (indices.graphicsFamily != indices.presentFamily) {  // 当图形和呈现不在同一个队列族时，使用并发共享模式。
             createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;  // 允许图像在两个队列族之间共享。

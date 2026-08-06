@@ -50,8 +50,8 @@ namespace czx {
 		std::unique_ptr<CzxSwapChain> m_swapChain;  // 当前使用的交换链对象。
 		std::vector<VkCommandBuffer> m_commandBuffers;  // 每帧对应的命令缓冲区集合。
 
-		uint32_t m_currentImageIndex;  // 当前帧正在渲染的交换链图像索引。
-		int m_currentFrameIndex;  // 当前使用的帧缓冲索引。
-		bool m_isFrameStarted;  // 表示当前是否已经开始记录一帧命令。
+		uint32_t m_currentImageIndex{};  // 当前帧正在渲染的交换链图像索引。
+		int m_currentFrameIndex{};  // 当前使用的帧缓冲索引。
+		bool m_isFrameStarted = false;  // 表示当前是否已经开始记录一帧命令。
 	};
 }	// namespace czx

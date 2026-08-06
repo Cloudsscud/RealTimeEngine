@@ -31,24 +31,18 @@ namespace czx {
 	{
 		createVertexBuffer(builder.vertices);
 		createIndexBuffer(builder.indices);
-	}
 
-	// 析构函数释放模型对应的vertex buffer、index buffer和相关显存资源
-	CzxModel::~CzxModel() {
-		// 清理vertex buffer
-		vkDestroyBuffer(m_device.device(), m_vertexBuffer, nullptr);
-		vkFreeMemory(m_device.device(), m_vertexBufferMemory, nullptr);
-
-		// 清理index buffer
-		if (m_hasIndexBuffer) {
-			vkDestroyBuffer(m_device.device(), m_indexBuffer, nullptr);
-			vkFreeMemory(m_device.device(), m_indexBufferMemory, nullptr);
+		if (!builder.m_textureFilePath.empty()) {
+			m_texture = CzxTexture::createTextureFromFile(device, builder.m_textureFilePath);
 		}
 	}
 
-	std::unique_ptr<CzxModel> CzxModel::createModelFromFile(CzxDevice& device, const std::string& filePath) {
+	// 相关显存资源通过独占指针自动销毁
+	CzxModel::~CzxModel() {	}
+
+	std::unique_ptr<CzxModel> CzxModel::createModelFromFile(CzxDevice& device, const std::string& filePath, const std::string& textureFilePath) {
 		Builder builder{};
-		builder.loadModel(filePath);
+		builder.loadModel(filePath, textureFilePath);
 		return std::make_unique<CzxModel>(device, builder);
 	}
 
@@ -105,35 +99,35 @@ namespace czx {
 
 		// 计算这部分index buffer需要的字节数
 		VkDeviceSize bufferSize = sizeof(indices[0]) * m_indexCount;
+		uint32_t indexSize = sizeof(indices[0]);
 
 		// 创建暂存缓冲区,用于拷贝
-		VkBuffer stageBuffer;
-		VkDeviceMemory stageBufferMemory;
-		m_device.createBuffer(
-			bufferSize,
+		CzxBuffer stageBuffer{
+			m_device,
+			indexSize,
+			m_indexCount,
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,	// 内存传输源
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,	// 暂存缓冲区确保host可见，且缓存一致性确保host主机更新时，将数据刷新到设备端
-			stageBuffer,
-			stageBufferMemory);
+		};
 
-		void* data;
-		vkMapMemory(m_device.device(), stageBufferMemory, 0, bufferSize, 0, &data);	// 将host数据(CPU)映射到设备端暂存缓冲区内存的位置
-		memcpy(data, indices.data(), static_cast<uint32_t>(bufferSize));	// 数据写入host主机内存data时，vulkan自动同步到设备端GPU的暂存缓冲区
-		vkUnmapMemory(m_device.device(), stageBufferMemory);	// 后续数据不再变化，结束映射，自动回收host的数据
+		//void* data;
+		//vkMapMemory(m_device.device(), stageBufferMemory, 0, bufferSize, 0, &data);	// 将host数据(CPU)映射到设备端暂存缓冲区内存的位置
+		//memcpy(data, indices.data(), static_cast<uint32_t>(bufferSize));	// 数据写入host主机内存data时，vulkan自动同步到设备端GPU的暂存缓冲区
+		//vkUnmapMemory(m_device.device(), stageBufferMemory);	// 后续数据不再变化，结束映射，自动回收host的数据
+		stageBuffer.map();
+		stageBuffer.writeToBuffer((void*)indices.data());
+		// 自动unmap并回收
 
 		// 创建设备本地的index buffer，并记录这部分buffer的句柄与内存句柄
-		m_device.createBuffer(
-			bufferSize,
+		m_indexBuffer = std::make_unique<CzxBuffer>(
+			m_device,
+			indexSize,
+			m_indexCount,
 			VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,	// 顶点缓冲且为缓冲区内存接收源
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,	// 设备本地缓冲区
-			m_indexBuffer,
-			m_indexBufferMemory);
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT	// 设备本地缓冲区
+			);
 
-		m_device.copyBuffer(stageBuffer, m_indexBuffer, bufferSize);
-
-		// 清理暂存缓冲区
-		vkDestroyBuffer(m_device.device(), stageBuffer, nullptr);
-		vkFreeMemory(m_device.device(), stageBufferMemory, nullptr);
+		m_device.copyBuffer(stageBuffer.getBuffer(), m_indexBuffer->getBuffer(), bufferSize);
 	}
 
 	void CzxModel::createVertexBuffer(const std::vector<Vertex>& vertices) {
@@ -143,44 +137,41 @@ namespace czx {
 
 		// 计算这部分vertex buffer需要的字节数
 		VkDeviceSize bufferSize = sizeof(vertices[0]) * m_vertexCount;
+		uint32_t vertexSize = sizeof(vertices[0]);
 
 		// 创建暂存缓冲区,用于拷贝
-		VkBuffer stageBuffer;
-		VkDeviceMemory stageBufferMemory;
-		m_device.createBuffer(
-			bufferSize,
+		CzxBuffer stageBuffer{m_device,
+			vertexSize,
+			m_vertexCount,
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,	// 内存传输源
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,	// 暂存缓冲区确保host可见，且缓存一致性确保host主机更新时，将数据刷新到设备端
-			stageBuffer,
-			stageBufferMemory);
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };	// 暂存缓冲区确保host可见，且缓存一致性确保host主机更新时，将数据刷新到设备端
 
-		void* data;
-		vkMapMemory(m_device.device(), stageBufferMemory, 0, bufferSize, 0, &data);	// 将host数据(CPU)映射到设备端暂存缓冲区内存的位置
-		memcpy(data, vertices.data(), static_cast<uint32_t>(bufferSize));	// 数据写入host主机内存data时，vulkan自动同步到设备端GPU的暂存缓冲区
-		vkUnmapMemory(m_device.device(), stageBufferMemory);	// 后续数据不再变化，结束映射，自动回收host的数据
+		//void* data;
+		//vkMapMemory(m_device.device(), stageBufferMemory, 0, bufferSize, 0, &data);	// 将host数据(CPU)映射到设备端暂存缓冲区内存的位置
+		//memcpy(data, vertices.data(), static_cast<uint32_t>(bufferSize));	// 数据写入host主机内存data时，vulkan自动同步到设备端GPU的暂存缓冲区
+		//vkUnmapMemory(m_device.device(), stageBufferMemory);	// 后续数据不再变化，结束映射，自动回收host的数据
+		stageBuffer.map();
+		stageBuffer.writeToBuffer((void*)vertices.data());
+		// buffer析构时自动unmap并销毁资源
 
-		// 创建设备本地的vertex buffer，并记录这部分buffer的句柄与内存句柄
-		m_device.createBuffer(
-			bufferSize,
+		m_vertexBuffer = std::make_unique<CzxBuffer>(
+			m_device,
+			vertexSize,
+			m_vertexCount,
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,	// 顶点缓冲且为缓冲区内存接收源
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,	// 设备本地缓冲区
-			m_vertexBuffer,
-			m_vertexBufferMemory);
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT	// 设备本地缓冲区
+		);
 
-		m_device.copyBuffer(stageBuffer, m_vertexBuffer, bufferSize);
-
-		// 清理暂存缓冲区
-		vkDestroyBuffer(m_device.device(), stageBuffer, nullptr);
-		vkFreeMemory(m_device.device(), stageBufferMemory, nullptr);
+		m_device.copyBuffer(stageBuffer.getBuffer(), m_vertexBuffer->getBuffer(), bufferSize);
 	}
 
 	// 把顶点缓冲绑定到当前命令缓冲区，准备在后续绘制调用中使用。
 	void CzxModel::bind(VkCommandBuffer commandBuffer) {
-		VkBuffer buffers[] = { m_vertexBuffer };
+		VkBuffer buffers[] = { m_vertexBuffer->getBuffer()};
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets);
 		if (m_hasIndexBuffer) {
-			vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+			vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 		}
 	}
 
@@ -204,22 +195,28 @@ namespace czx {
 		return bindingDescriptions;
 	}
 
-	// 描述顶点属性在缓冲区中的布局，告诉Vulkan位置和颜色分别来自哪里。
+	// 描述顶点属性在缓冲区中的布局，告诉Vulkan顶点输入属性的布局格式
 	std::vector<VkVertexInputAttributeDescription> CzxModel::Vertex::getAttributeDescriptions() {
-		std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
-		attributeDescriptions[0].binding = 0;
-		attributeDescriptions[0].location = 0; // 对应vertex shader对应的position
-		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;	// vec3
-		attributeDescriptions[0].offset = offsetof(Vertex, position);	// 自行计算顶点属性中成员变量的偏移
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
 
-		attributeDescriptions[1].binding = 0;	// 与位置交错绑定
-		attributeDescriptions[1].location = 1; // 对应vertex shader对应的color
-		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;	// vec3
-		attributeDescriptions[1].offset = offsetof(Vertex, color);
+		attributeDescriptions.push_back({ 0, 0, VK_FORMAT_R32G32B32_SFLOAT , offsetof(Vertex, position) });
+		attributeDescriptions.push_back({ 1, 0, VK_FORMAT_R32G32B32_SFLOAT , offsetof(Vertex, color) });
+		attributeDescriptions.push_back({ 2, 0, VK_FORMAT_R32G32B32_SFLOAT , offsetof(Vertex, normal) });
+		attributeDescriptions.push_back({ 3, 0, VK_FORMAT_R32G32_SFLOAT , offsetof(Vertex, uv) });
+
+		//attributeDescriptions[0].location = 0; // 对应vertex shader对应的position
+		//attributeDescriptions[0].binding = 0;
+		//attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;	// vec3
+		//attributeDescriptions[0].offset = offsetof(Vertex, position);	// 自行计算顶点属性中成员变量的偏移
+
+		//attributeDescriptions[1].location = 1; // 对应vertex shader对应的color
+		//attributeDescriptions[1].binding = 0;	// 与位置交错绑定
+		//attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;	// vec3
+		//attributeDescriptions[1].offset = offsetof(Vertex, color);
 		return attributeDescriptions;
 	}
 
-	void CzxModel::Builder::loadModel(const std::string& filePath) {
+	void CzxModel::Builder::loadModel(const std::string& filePath, const std::string& textureFilePath) {
 		// 使用 rapidobj 解析 OBJ 文件
 		rapidobj::Result result = rapidobj::ParseFile(filePath);
 
@@ -281,7 +278,7 @@ namespace czx {
 				}
 
 				// 临时颜色
-				vertex.color = vertex.normal;
+				vertex.color = glm::vec3{1.f};
 
 				if (uniqueVertices.count(vertex) == 0) {
 					uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
@@ -302,13 +299,17 @@ namespace czx {
 		//Vertices: 2917794
 		//Triangles : 972598
 		//Materials : 1
-		//Vertex count : 2917794
 
 		// hash去重vertices与indices
 		// Loaded model: D:/PG/RealTimeEngine/models/WhiteWeddingDressGirl/WhiteWeddingDressGirl.obj
 		// Vertices: 530843
 		// Triangles : 972598
 		// Materials : 1
-		// Vertex count : 530843
+
+		if (!textureFilePath.empty()) {
+			m_textureFilePath = textureFilePath;
+		}
 	}
+
+
 }	// namespace czx

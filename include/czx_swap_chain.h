@@ -64,7 +64,7 @@ namespace czx {
 
         VkFormat m_swapChainImageFormat;  // 交换链图像的颜色格式。
         VkFormat m_swapChainDepthFormat;  // 深度缓冲图像格式。
-        VkExtent2D m_swapChainExtent;  // 交换链当前使用的尺寸。
+        VkExtent2D m_swapChainExtent;  // 交换链当前使用的屏幕范围。
 
         std::vector<VkFramebuffer> m_swapChainFramebuffers;  // 每个交换链图像对应的帧缓冲对象。
         VkRenderPass m_renderPass;  // 当前渲染通道句柄。

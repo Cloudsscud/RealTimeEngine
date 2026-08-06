@@ -4,6 +4,7 @@
 #include <czx_device.h>
 #include <czx_game_object.h>
 #include <czx_renderer.h>
+#include <czx_descriptor.h>
 
 // std
 #include <memory>
@@ -30,6 +31,8 @@ namespace czx {
 		CzxDevice m_device{m_window};  // 根据窗口创建Vulkan设备和相关资源。
 		CzxRenderer m_renderer{ m_window, m_device };  // 使用设备和窗口管理渲染帧流程。
 
+		std::unique_ptr<CzxDescriptorPool>	m_globalPool{};	// 池应当在设备之前销毁
+		std::unique_ptr<CzxDescriptorPool>	m_texturePool{};	// 池应当在设备之前销毁
 		std::vector<CzxGameObject> m_gameObjects;  // 保存当前场景中的所有可渲染对象。
 	};
 }	// namespace czx

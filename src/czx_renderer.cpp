@@ -97,6 +97,7 @@ namespace czx {
 	// 结束当前帧的命令记录，并提交渲染结果到交换链进行呈现。
 	void CzxRenderer::endFrame() {
 		assert(m_isFrameStarted && "Cannot call endFrame while frame not in progress");
+
 		auto commandBuffer = getCurrentCommandBuffer();
 
 		if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {

@@ -20,6 +20,7 @@ set(VULKAN_SDK "${dependencies_dir}/vulkan/VulkanSDK/1.4.350.0" CACHE PATH "Vulk
 set(GLM_DIR "${dependencies_dir}/glm" CACHE PATH "GLM directory")
 set(GLFW_SOURCE_DIR "${dependencies_dir}/GLFW/glfw-3.4/glfw-3.4" CACHE PATH "GLFW source directory")
 set(RAPID_OBJ_DIR "${dependencies_dir}/rapidobj" CACHE PATH "rapidobj source directory")
+set(STB_IMAGE_DIR "${dependencies_dir}/stb-master" CACHE PATH "stb_image source directory")
 
 # 查找 glslc 编译器（使用你compile.bat中的路径）
 find_program(GLSL_COMPILER
@@ -77,9 +78,13 @@ set(ENGINE_SOURCES
     src/czx_device.cpp
     src/czx_pipeline.cpp
     src/czx_swap_chain.cpp
+    src/czx_texture.cpp
     src/czx_model.cpp
+    src/czx_game_object.cpp
     src/czx_renderer.cpp
     src/czx_camera.cpp
+    src/czx_buffer.cpp
+    src/czx_descriptor.cpp
     src/simple_render_system.cpp
     src/keyboard_movement_controller.cpp
     
@@ -91,11 +96,15 @@ set(ENGINE_HEADERS
     include/czx_device.h
     include/czx_pipeline.h
     include/czx_swap_chain.h
+    include/czx_texture.h
     include/czx_model.h
     include/czx_game_object.h
     include/czx_renderer.h
     include/czx_camera.h
+    include/czx_buffer.h
+    include/czx_descriptor.h
     include/czx_utils.h
+    include/czx_frame_info.h
     include/simple_render_system.h
     include/keyboard_movement_controller.h
 )
@@ -113,7 +122,7 @@ add_executable(${PROJECT_NAME}
     ${ENGINE_SOURCES}
     ${ENGINE_HEADERS}
     ${ENGINE_RESOURCES}
-  )
+)
 
   # 着色器编译目标作为可执行文件的依赖
 add_dependencies(${PROJECT_NAME} CompileShaders)
@@ -129,6 +138,7 @@ target_include_directories(RealTimeEngine PRIVATE
     ${VULKAN_SDK}/Include
     ${GLM_DIR}
     ${RAPID_OBJ_DIR}/include
+    ${STB_IMAGE_DIR}/stb-master
 )
 
 # 链接库

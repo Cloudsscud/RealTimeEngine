@@ -5,6 +5,7 @@
 // std
 #include <string>
 #include <vector>
+#include <optional>
 
 namespace czx {
 
@@ -17,11 +18,10 @@ namespace czx {
 
     // 记录图形队列和呈现队列在物理设备中的队列族索引，方便后续创建逻辑设备和提交命令。
     struct QueueFamilyIndices {
-        uint32_t graphicsFamily;  // 图形/计算队列族索引。
-        uint32_t presentFamily;  // 负责呈现到窗口表面的队列族索引。
-        bool graphicsFamilyHasValue = false;  // 是否找到图形队列族。
-        bool presentFamilyHasValue = false;  // 是否找到呈现队列族。
-        bool isComplete() { return graphicsFamilyHasValue && presentFamilyHasValue; }  // 判断是否同时具备图形和呈现能力。
+        // 通过optional检查是否找到相应的队列族索引
+        std::optional<uint32_t> graphicsFamily;  // 图形/计算队列族索引。
+        std::optional<uint32_t> presentFamily;  // 负责呈现到窗口表面的队列族索引。
+        bool isComplete() { return graphicsFamily.has_value() && presentFamily.has_value(); }  // 判断是否同时具备图形和呈现能力。
     };
 
     // 负责初始化Vulkan实例、创建窗口表面、选择物理设备、创建逻辑设备以及命令池等核心资源。
@@ -53,6 +53,8 @@ namespace czx {
         QueueFamilyIndices findPhysicalQueueFamilies() { return findQueueFamilies(m_physicalDevice); }  // 查找当前物理设备所支持的队列族。
         VkFormat findSupportedFormat(
             const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);  // 在候选格式中挑选当前设备支持的格式。
+        VkPhysicalDevice getPhysicalDevice() const { return m_physicalDevice; }
+        const VkPhysicalDeviceProperties& getPhysicalDeviceProperties() const { return properties; }
 
         // Buffer Helper Functions
         void createBuffer(  // 创建一个Vulkan缓冲区并为其分配内存，供顶点、索引或上传数据使用。
@@ -85,17 +87,17 @@ namespace czx {
 
         // helper functions
         bool isDeviceSuitable(VkPhysicalDevice device);
-        std::vector<const char*> getRequiredExtensions();
-        bool checkValidationLayerSupport();
+        std::vector<const char*> getRequiredExtensions();   // 获取系统需要的所有拓展名
+        bool checkValidationLayerSupport(); // 检查系统的验证层是否可用
         QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
         void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-        void hasGflwRequiredInstanceExtensions();
+        void hasGflwRequiredInstanceExtensions();   // 验证需求的拓展是否完善
         bool checkDeviceExtensionSupport(VkPhysicalDevice device);
         SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
 
         VkInstance m_instance;  // Vulkan实例句柄，整个应用的入口对象。
         VkDebugUtilsMessengerEXT m_debugMessenger;  // 调试消息回调句柄，用于输出验证层错误和警告。
-        VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;  // 当前选择的物理设备句柄。
+        VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;  // 当前选择的物理设备（显卡）句柄。
         CzxWindow& m_window;  // 对窗口对象的引用，用于创建窗口表面和查询窗口尺寸。
         VkCommandPool m_commandPool;  // 命令池，负责分配和管理命令缓冲区。
 
@@ -105,7 +107,7 @@ namespace czx {
         VkQueue m_presentQueue;  // 呈现队列句柄。
 
         const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };  // 调试时启用的验证层名称。
-        const std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };  // 逻辑设备需要启用的扩展。
+        const std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };  // 创建交换链需要启用的扩展。
     };
 
 }  // namespace czx

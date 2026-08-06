@@ -54,6 +54,7 @@ namespace czx {
     CzxDevice::CzxDevice(CzxWindow& window) : m_window{ window } {  // 构造函数把窗口对象引用保存到成员中，后续创建表面和设备都依赖它。
         createInstance();  // 创建并初始化Vulkan实例，建立应用与Vulkan驱动的连接。
         setupDebugMessenger();  // 初始化验证层调试回调，便于在调试阶段捕获错误信息。
+        // surface须在instance创建后，physical device前创建，会影响
         createSurface();  // 为当前窗口创建Vulkan可呈现的表面对象。
         pickPhysicalDevice();  // 从所有可用GPU中选择一个满足条件的物理设备。
         createLogicalDevice();  // 根据物理设备创建逻辑设备，供后续资源和命令提交使用。
@@ -81,7 +82,7 @@ namespace czx {
 
         VkApplicationInfo appInfo = {};  // 创建并清零应用信息结构体，避免残留字段影响Vulkan配置。
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;  // 告诉Vulkan该结构体的类型，便于正确解析其内容。
-        appInfo.pApplicationName = "LittleVulkanEngine App";  // 给应用起名字，便于调试器和驱动展示。
+        appInfo.pApplicationName = "RealTimeRenderer App";  // 给应用起名字，便于调试器和驱动展示。
         appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);  // 设置应用版本号，方便识别和调试。
         appInfo.pEngineName = "No Engine";  // 设置引擎名，说明当前程序并没有使用完整引擎框架。
         appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);  // 设置引擎版本号，便于排查兼容性问题。
@@ -146,9 +147,9 @@ namespace czx {
         QueueFamilyIndices indices = findQueueFamilies(m_physicalDevice);  // 查找图形和呈现队列所在的队列族索引。
 
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;  // 先准备一个队列创建信息列表，后续一次性创建所需队列。
-        std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily, indices.presentFamily };  // 使用集合去重，确保图形和呈现队列只创建一次。
+        std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };  // 使用集合去重，确保图形和呈现队列只创建一次。
 
-        float queuePriority = 1.0f;  // 设置队列优先级，数值越大越优先被调度。
+        float queuePriority = 1.0f;  // 设置队列优先级0-1，数值越大越优先被调度。
         for (uint32_t queueFamily : uniqueQueueFamilies) {  // 为每个唯一的队列族创建相应的队列配置。
             VkDeviceQueueCreateInfo queueCreateInfo = {};  // 创建并清零队列创建信息结构体。
             queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;  // 标记结构体类型，供Vulkan识别。
@@ -185,8 +186,8 @@ namespace czx {
             throw std::runtime_error("failed to create logical device!");  // 创建失败时抛出异常。
         }
 
-        vkGetDeviceQueue(m_device, indices.graphicsFamily, 0, &m_graphicsQueue);  // 获取图形队列句柄，供后续提交绘制命令使用。
-        vkGetDeviceQueue(m_device, indices.presentFamily, 0, &m_presentQueue);  // 获取呈现队列句柄，供后续提交交换链显示使用。
+        vkGetDeviceQueue(m_device, indices.graphicsFamily.value(), 0, &m_graphicsQueue);  // 获取图形队列句柄，供后续提交绘制命令使用。
+        vkGetDeviceQueue(m_device, indices.presentFamily.value(), 0, &m_presentQueue);  // 获取呈现队列句柄，供后续提交交换链显示使用。
     }
 
     // 创建命令池，后续用于分配命令缓冲区执行一次性或循环提交的GPU命令。
@@ -195,7 +196,7 @@ namespace czx {
 
         VkCommandPoolCreateInfo poolInfo = {};  // 创建命令池创建信息结构体。
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;  // 标记该结构体类型。
-        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily;  // 指定命令池关联的图形队列族。
+        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();  // 指定命令池关联的图形队列族。
         poolInfo.flags =
             VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;  // 设置命令池的用途标志，方便短命令和重置命令缓冲区。
 
@@ -234,10 +235,10 @@ namespace czx {
         createInfo = {};  // 清零结构体，避免残留无效字段影响调试配置。
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;  // 标记结构体类型，告诉Vulkan它是调试消息器配置结构。
         createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;  // 只关注警告和错误消息，避免过多调试输出。
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;  // 只关注警告和错误等级的消息，避免过多调试输出。
         createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
             VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;  // 同时收集通用、验证和性能相关的消息。
+            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;  // 同时收集通用、验证和性能相关的功能性消息。
         createInfo.pfnUserCallback = debugCallback;  // 设置回调函数地址，Vulkan遇到消息时会调用它。
         createInfo.pUserData = nullptr;  // Optional  // 保留用户数据指针，当前未使用，置空即可。
     }
@@ -352,13 +353,11 @@ namespace czx {
         for (const auto& queueFamily : queueFamilies) {  // 遍历所有队列族，判断它们是否支持图形和呈现。
             if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {  // 如果队列族中存在可用队列且支持图形能力，就记录它。
                 indices.graphicsFamily = i;  // 保存图形队列族索引。
-                indices.graphicsFamilyHasValue = true;  // 标记图形队列族已找到。
             }
             VkBool32 presentSupport = false;  // 先默认假设当前队列族不支持呈现。
             vkGetPhysicalDeviceSurfaceSupportKHR(device, i, m_surface, &presentSupport);  // 查询当前队列族对当前窗口表面的呈现支持情况。
             if (queueFamily.queueCount > 0 && presentSupport) {  // 如果队列族存在并且支持呈现，就记录它。
                 indices.presentFamily = i;  // 保存呈现队列族索引。
-                indices.presentFamilyHasValue = true;  // 标记呈现队列族已找到。
             }
             if (indices.isComplete()) {  // 如果图形和呈现队列族都已找到，就无需再继续枚举。
                 break;  // 直接退出循环。

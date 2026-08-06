@@ -13,16 +13,19 @@
 #include <array>
 
 namespace czx {
-	// 推送常量数据结构，用来把每个对象的变换和颜色传递给着色器。
+	// 推送常量数据结构，用来把每个对象的变换和颜色传递给着色器，最大128bytes=2*mat4x4
 	struct SimplePushConstantData {
-		glm::mat4 transform{ 1.f };	// 模型变换矩阵，默认单位矩阵
-		alignas(16) glm::vec3 color;	// 推送常量布局要对齐，vec
+		glm::mat4 modelMatrix{ 1.f };
+		glm::mat4 normalMatrix{ 1.f };
 	};
 
 	// 构造函数会先创建管线布局，再根据当前渲染通道创建具体的图形管线。
-	SimpleRenderSystem::SimpleRenderSystem(CzxDevice& device, VkRenderPass renderPass) :m_device{device}
+	SimpleRenderSystem::SimpleRenderSystem(CzxDevice& device, VkRenderPass renderPass,
+		VkDescriptorSetLayout globalSetLayout,
+		VkDescriptorSetLayout textureSetLayout)
+		:m_device{device}
 	{
-		createPipelineLayout();
+		createPipelineLayout(globalSetLayout, textureSetLayout);
 		createPipeline(renderPass);
 	}
 
@@ -33,16 +36,18 @@ namespace czx {
 
 
 	// 为当前渲染系统创建管线布局，定义着色器可访问的推送常量范围。
-	void SimpleRenderSystem::createPipelineLayout() {
+	void SimpleRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout textureSetLayout) {
 		VkPushConstantRange pushConstantRange{};
 		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 		pushConstantRange.offset = 0;
 		pushConstantRange.size = sizeof(SimplePushConstantData);
 
+		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{ globalSetLayout, textureSetLayout };
+
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 0;
-		pipelineLayoutInfo.pSetLayouts = nullptr;
+		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
+		pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
 		pipelineLayoutInfo.pushConstantRangeCount = 1;
 		pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 		if (vkCreatePipelineLayout(m_device.device(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
@@ -62,29 +67,53 @@ namespace czx {
 	}
 
 	// 遍历所有游戏对象，更新其变换并依次绑定顶点缓冲和提交绘制调用。
-	void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<CzxGameObject>& gameObjects, const CzxCamera& camera) {
-		auto projectionView = camera.getProjection() * camera.getView();
+	void SimpleRenderSystem::renderGameObjects(FrameInfo& frameInfo, std::vector<CzxGameObject>& gameObjects) {
+
+		vkCmdBindDescriptorSets(
+			frameInfo.commandBuffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			m_pipelineLayout,
+			0,
+			1,
+			&frameInfo.globalDescriptorSet,
+			0,
+			nullptr);
+
 
 		// render
 		// bind vertex buffer后，drawCall之前，推送常量
 		//多个不同常量图形便多次pushConstant 并 drawCall
 		//将多个模型绑定放在一个缓冲区内可以减少大量的drawCall可以优化性能
 		//但是此时不允许每个模型访问各自特有的推送常量
-		m_pipeline->bind(commandBuffer);
+		m_pipeline->bind(frameInfo.commandBuffer);
 		for (auto& obj : gameObjects) {
 
 			SimplePushConstantData push{};
-			push.color = obj.m_color;
-			push.transform = projectionView * obj.m_transform.mat4();
+			push.modelMatrix = obj.m_transform.mat4();
+			push.normalMatrix = obj.m_transform.normalMatrix();
 
 			vkCmdPushConstants(
-				commandBuffer,
+				frameInfo.commandBuffer,
 				m_pipelineLayout,
 				VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 				0,
 				sizeof(SimplePushConstantData), &push);
-			obj.m_model->bind(commandBuffer);
-			obj.m_model->draw(commandBuffer);
+
+			// 绑定纹理
+			if (obj.m_model && obj.m_model->hasTexture()) {
+				vkCmdBindDescriptorSets(
+					frameInfo.commandBuffer,
+					VK_PIPELINE_BIND_POINT_GRAPHICS,
+					m_pipelineLayout,
+					1,
+					1,
+					&frameInfo.textureDescriptorSet,
+					0,
+					nullptr);
+			}
+
+			obj.m_model->bind(frameInfo.commandBuffer);
+			obj.m_model->draw(frameInfo.commandBuffer);
 		}
 	}
 
