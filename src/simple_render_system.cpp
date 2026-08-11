@@ -21,11 +21,10 @@ namespace czx {
 
 	// 构造函数会先创建管线布局，再根据当前渲染通道创建具体的图形管线。
 	SimpleRenderSystem::SimpleRenderSystem(CzxDevice& device, VkRenderPass renderPass,
-		VkDescriptorSetLayout globalSetLayout,
-		VkDescriptorSetLayout textureSetLayout)
+		const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts)
 		:m_device{device}
 	{
-		createPipelineLayout(globalSetLayout, textureSetLayout);
+		createPipelineLayout(descriptorSetLayouts);
 		createPipeline(renderPass);
 	}
 
@@ -36,13 +35,12 @@ namespace czx {
 
 
 	// 为当前渲染系统创建管线布局，定义着色器可访问的推送常量范围。
-	void SimpleRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout textureSetLayout) {
+	void SimpleRenderSystem::createPipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts) {
 		VkPushConstantRange pushConstantRange{};
 		pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 		pushConstantRange.offset = 0;
 		pushConstantRange.size = sizeof(SimplePushConstantData);
 
-		std::vector<VkDescriptorSetLayout> descriptorSetLayouts{ globalSetLayout, textureSetLayout };
 
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -100,17 +98,15 @@ namespace czx {
 				sizeof(SimplePushConstantData), &push);
 
 			// 绑定纹理
-			if (obj.m_model && obj.m_model->hasTexture()) {
-				vkCmdBindDescriptorSets(
-					frameInfo.commandBuffer,
-					VK_PIPELINE_BIND_POINT_GRAPHICS,
-					m_pipelineLayout,
-					1,
-					1,
-					&frameInfo.textureDescriptorSet,
-					0,
-					nullptr);
-			}
+			vkCmdBindDescriptorSets(
+				frameInfo.commandBuffer,
+				VK_PIPELINE_BIND_POINT_GRAPHICS,
+				m_pipelineLayout,
+				0,
+				1,
+				&frameInfo.globalDescriptorSet,
+				0,
+				nullptr);
 
 			obj.m_model->bind(frameInfo.commandBuffer);
 			obj.m_model->draw(frameInfo.commandBuffer);

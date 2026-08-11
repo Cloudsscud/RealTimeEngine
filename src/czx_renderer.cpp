@@ -19,8 +19,15 @@ namespace czx {
 
 	// 在窗口大小变化或交换链失效时，重新创建交换链并同步渲染资源。
 	void CzxRenderer::recreateSwapChain() {
+		if (!m_window.isValid()) {
+			throw std::runtime_error("Cannot recreate swap chain on invalid window");
+		}
+
 		auto extent = m_window.getExtent();
 		while (extent.width == 0 || extent.height == 0) {
+			if (!m_window.isValid()) {
+				throw std::runtime_error("Window destroyed during swap chain recreation");
+			}
 			extent = m_window.getExtent();
 			glfwWaitEvents();
 		}

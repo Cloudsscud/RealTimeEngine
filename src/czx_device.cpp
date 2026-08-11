@@ -138,8 +138,8 @@ namespace czx {
             throw std::runtime_error("failed to find a suitable GPU!");  // 抛出异常，提醒用户更换或升级GPU环境。
         }
 
-        vkGetPhysicalDeviceProperties(m_physicalDevice, &properties);  // 获取当前物理设备的属性，包含名称和类型等信息。
-        std::cout << "physical device: " << properties.deviceName << std::endl;  // 输出设备名称，方便确认实际使用的是哪张显卡。
+        vkGetPhysicalDeviceProperties(m_physicalDevice, &m_properties);  // 获取当前物理设备的属性，包含名称和类型等信息。
+        std::cout << "physical device: " << m_properties.deviceName << std::endl;  // 输出设备名称，方便确认实际使用的是哪张显卡。
     }
 
     // 根据物理设备的队列族信息创建逻辑设备，并获取图形和呈现队列句柄。
@@ -372,7 +372,7 @@ namespace czx {
     // 查询当前物理设备对交换链的能力支持情况，包括格式、呈现模式和表面能力。
     SwapChainSupportDetails CzxDevice::querySwapChainSupport(VkPhysicalDevice device) {  // 这个函数用于收集交换链创建时所需的能力信息。
         SwapChainSupportDetails details;  // 创建一个结构体，用于容纳查询结果。
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &details.capabilities);  // 获取当前表面支持的基础能力，例如最小/最大尺寸和转换模式。
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &details.capabilities);  // 获取当前表面支持的基础能力，交换链中图像数量、图像最小/最大尺寸。
 
         uint32_t formatCount;  // 保存表面格式数量。
         vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, nullptr);  // 先查询可用表面格式数量。
@@ -565,6 +565,126 @@ namespace czx {
         if (vkBindImageMemory(m_device, image, imageMemory, 0) != VK_SUCCESS) {  // 把已分配内存绑定到图像对象上。
             throw std::runtime_error("failed to bind image memory!");  // 绑定失败时抛出异常。
         }
+    }
+
+    VkImageView CzxDevice::createImageView(
+        VkImage image,
+        VkFormat format,
+        VkImageAspectFlags aspectMask,
+        uint32_t mipLevels,
+        uint32_t baseMipLevel,
+        uint32_t arrayLayers,
+        uint32_t baseArrayLayer,
+        VkImageViewType viewType) {
+
+        VkImageViewCreateInfo viewInfo{};
+        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewInfo.image = image;
+        viewInfo.viewType = viewType;
+        viewInfo.format = format;
+        viewInfo.subresourceRange.aspectMask = aspectMask;
+        viewInfo.subresourceRange.baseMipLevel = baseMipLevel;
+        viewInfo.subresourceRange.levelCount = mipLevels;
+        viewInfo.subresourceRange.baseArrayLayer = baseArrayLayer;
+        viewInfo.subresourceRange.layerCount = arrayLayers;
+
+        VkImageView imageView;
+        if (vkCreateImageView(m_device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create image view!");
+        }
+        return imageView;
+    }
+
+    VkSampler CzxDevice::createDefaultSampler() {
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(m_physicalDevice, &properties);
+
+        VkSamplerCreateInfo samplerInfo{};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.anisotropyEnable = VK_TRUE;
+        samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        samplerInfo.unnormalizedCoordinates = VK_FALSE;
+        samplerInfo.compareEnable = VK_FALSE;
+        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerInfo.mipLodBias = 0.0f;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = VK_LOD_CLAMP_NONE;
+
+        VkSampler sampler;
+        if (vkCreateSampler(m_device, &samplerInfo, nullptr, &sampler) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create sampler!");
+        }
+        return sampler;
+    }
+
+    void CzxDevice::transitionImageLayout(
+        VkImage image,
+        VkFormat format,
+        VkImageLayout oldLayout,
+        VkImageLayout newLayout,
+        uint32_t mipLevels,
+        uint32_t baseMipLevel,
+        uint32_t arrayLayers,
+        uint32_t baseArrayLayer,
+        VkImageAspectFlags aspectMask) {
+
+        VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = oldLayout;
+        barrier.newLayout = newLayout;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = image;
+        barrier.subresourceRange.aspectMask = aspectMask;
+        barrier.subresourceRange.baseMipLevel = baseMipLevel;
+        barrier.subresourceRange.levelCount = mipLevels;
+        barrier.subresourceRange.baseArrayLayer = baseArrayLayer;
+        barrier.subresourceRange.layerCount = arrayLayers;
+
+        VkPipelineStageFlags sourceStage;
+        VkPipelineStageFlags destinationStage;
+
+        if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        }
+        else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        }
+        else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        }
+        else {
+            throw std::runtime_error("Unsupported layout transition!");
+        }
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            sourceStage, destinationStage,
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &barrier
+        );
+
+        endSingleTimeCommands(commandBuffer);
     }
 
 }  // namespace lve

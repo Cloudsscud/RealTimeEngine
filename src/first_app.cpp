@@ -31,9 +31,6 @@ namespace czx {
 		m_globalPool = CzxDescriptorPool::Builder(m_device)
 			.setMaxSets(CzxSwapChain::MAX_FRAMES_IN_FLIGHT)
 			.addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, CzxSwapChain::MAX_FRAMES_IN_FLIGHT)
-			.build();
-		m_texturePool = CzxDescriptorPool::Builder(m_device)
-			.setMaxSets(CzxSwapChain::MAX_FRAMES_IN_FLIGHT + 10)  // 多分配一些
 			.addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, CzxSwapChain::MAX_FRAMES_IN_FLIGHT + 10)
 			.build();
 		loadGameObjects();
@@ -51,48 +48,41 @@ namespace czx {
 				sizeof(GlobalUbo),
 				1,
 				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 			uboBuffers[i]->map();
 		}
 
-		auto globalSetLayout = CzxDescriptorSetLayout::Builder(m_device)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+		auto descriptorSetLayouts = CzxDescriptorSetLayout::Builder(m_device)
+			.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)	// globalUbo
+			.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)	// imageSampler
 			.build();
 
-		// 创建纹理描述符集布局
-		auto textureSetLayout = CzxDescriptorSetLayout::Builder(m_device)
-			.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-			.build();
+		std::vector<VkDescriptorSet> descriptorSets(CzxSwapChain::MAX_FRAMES_IN_FLIGHT);
 
-		std::vector<VkDescriptorSet> globalDescriptorSets(CzxSwapChain::MAX_FRAMES_IN_FLIGHT);
-		for (int i = 0; i < globalDescriptorSets.size(); ++i) {
-			auto bufferInfo = uboBuffers[i]->descriptorInfo();
-			CzxDescriptorWriter(*globalSetLayout, *m_globalPool)
-				.writeBuffer(0, &bufferInfo)
-				.build(globalDescriptorSets[i]);
-		}
-
-		std::vector<VkDescriptorSet> textureDescriptorSets(CzxSwapChain::MAX_FRAMES_IN_FLIGHT);
-		// 为每个飞行帧分配纹理描述符集
-		for (int i = 0; i < textureDescriptorSets.size(); ++i) {
-			// 先分配空的描述符集
-			CzxDescriptorWriter(*textureSetLayout, *m_texturePool)
-				.build(textureDescriptorSets[i]);
-		}
+		std::shared_ptr<CzxTexture> sharedTexture;
 		for (auto& obj : m_gameObjects) {
 			if (obj.m_model && obj.m_model->hasTexture()) {
-				auto texture = obj.m_model->getTexture();
-				auto imageInfo = texture->getDescriptorInfo();
-
-				for (int i = 0; i < CzxSwapChain::MAX_FRAMES_IN_FLIGHT; ++i) {
-					CzxDescriptorWriter(*textureSetLayout, *m_texturePool)
-						.writeImage(0, const_cast<VkDescriptorImageInfo*>(&imageInfo))
-						.build(textureDescriptorSets[i]);
-				}
+				sharedTexture = obj.m_model->getTexture();
+				break;
 			}
 		}
+		if (!sharedTexture) {
+			throw std::runtime_error("failed to load texture");
+		}
+		VkDescriptorImageInfo imageInfo = sharedTexture->getDescriptorInfo();
 
-		SimpleRenderSystem simpleRenderSystem{ m_device, m_renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout(), textureSetLayout->getDescriptorSetLayout()};
+		for (int i = 0; i < descriptorSets.size(); ++i) {
+			auto bufferInfo = uboBuffers[i]->descriptorInfo();
+			CzxDescriptorWriter(*descriptorSetLayouts, *m_globalPool)
+				.writeBuffer(0, &bufferInfo)
+				.writeImage(1, &imageInfo)
+				.build(descriptorSets[i]);
+		}
+
+		std::vector<VkDescriptorSetLayout> setLayouts{
+			descriptorSetLayouts->getDescriptorSetLayout()
+		};
+		SimpleRenderSystem simpleRenderSystem{ m_device, m_renderer.getSwapChainRenderPass(), setLayouts };
         CzxCamera camera{};
 
         auto viewObject = CzxGameObject::createGameObject();    // 仅用于观测，无实体
@@ -121,8 +111,7 @@ namespace czx {
 					frameTime,
 					commandBuffer,
 					camera,
-					globalDescriptorSets[frameIndex],
-					textureDescriptorSets[frameIndex]
+					descriptorSets[frameIndex]
 				};
 
 				// update

@@ -54,7 +54,7 @@ namespace czx {
         VkFormat findSupportedFormat(
             const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);  // 在候选格式中挑选当前设备支持的格式。
         VkPhysicalDevice getPhysicalDevice() const { return m_physicalDevice; }
-        const VkPhysicalDeviceProperties& getPhysicalDeviceProperties() const { return properties; }
+        const VkPhysicalDeviceProperties& getPhysicalDeviceProperties() const { return m_properties; }
 
         // Buffer Helper Functions
         void createBuffer(  // 创建一个Vulkan缓冲区并为其分配内存，供顶点、索引或上传数据使用。
@@ -75,7 +75,35 @@ namespace czx {
             VkImage& image,
             VkDeviceMemory& imageMemory);
 
-        VkPhysicalDeviceProperties properties;  // 保存当前物理设备的属性，如名称、类型和限制。
+        // 创建图像视图
+        VkImageView createImageView(
+            VkImage image,
+            VkFormat format,
+            VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            uint32_t mipLevels = 1,
+            uint32_t baseMipLevel = 0,
+            uint32_t arrayLayers = 1,
+            uint32_t baseArrayLayer = 0,
+            VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D);
+
+        // 创建采样器（使用默认参数，可选传递自定义创建信息）
+        VkSampler createSampler(const VkSamplerCreateInfo& samplerInfo);
+        // 或者提供一个简化版本，使用常用配置
+        VkSampler createDefaultSampler();
+
+        // 通用图像布局转换
+        void transitionImageLayout(
+            VkImage image,
+            VkFormat format,
+            VkImageLayout oldLayout,
+            VkImageLayout newLayout,
+            uint32_t mipLevels = 1,
+            uint32_t baseMipLevel = 0,
+            uint32_t arrayLayers = 1,
+            uint32_t baseArrayLayer = 0,
+            VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT);
+
+        VkPhysicalDeviceProperties m_properties;  // 保存当前物理设备的属性，如名称、类型和限制。
 
     private:
         void createInstance();
@@ -93,7 +121,7 @@ namespace czx {
         void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
         void hasGflwRequiredInstanceExtensions();   // 验证需求的拓展是否完善
         bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-        SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
+        SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device); // 在物理设备中查找创建交换链需要的显示器的能力
 
         VkInstance m_instance;  // Vulkan实例句柄，整个应用的入口对象。
         VkDebugUtilsMessengerEXT m_debugMessenger;  // 调试消息回调句柄，用于输出验证层错误和警告。

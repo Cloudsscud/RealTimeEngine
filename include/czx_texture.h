@@ -47,8 +47,6 @@ namespace czx {
         void createImage(const std::string& filePath, VkFormat format);
         void createImageView(VkFormat format);
         void createSampler();
-        void transitionImageLayout(VkImageLayout oldLayout, VkImageLayout newLayout);
-        void copyBufferToImage(VkBuffer buffer);
 
         CzxDevice& m_device;
 

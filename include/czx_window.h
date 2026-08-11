@@ -31,6 +31,7 @@ namespace czx {
 		// 用于重建交换链：检查窗口是否被调整大小，重置标志
 		bool wasWindowResized() { return m_framebufferResized; }  // 返回窗口是否发生过尺寸变化，供外部决定是否重建交换链。
 		void resetWindowResizedFlag() { m_framebufferResized = false; }  // 重置尺寸变化标志，避免重复触发重建逻辑。
+		bool isValid() const { return m_window != nullptr; }
 
 		// 创建vulkan窗口表面，vulkan依赖于表面来呈现图像
 		void createWindowSurface(VkInstance instance, VkSurfaceKHR* surface);  // 为当前窗口创建Vulkan呈现表面，供渲染和交换链使用。

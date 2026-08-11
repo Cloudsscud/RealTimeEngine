@@ -15,7 +15,7 @@ namespace czx {
 	class SimpleRenderSystem {
 	public:
 
-		SimpleRenderSystem(CzxDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout textureSetLayout);  // 根据设备和渲染通道创建渲染系统所需管线资源。
+		SimpleRenderSystem(CzxDevice& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts);  // 根据设备和渲染通道创建渲染系统所需管线资源。
 		~SimpleRenderSystem();  // 销毁管线布局和相关渲染资源。
 
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;  // 禁止拷贝，避免多个渲染系统共享同一管线资源。
@@ -23,7 +23,7 @@ namespace czx {
 
 		void renderGameObjects(FrameInfo& frameInfo, std::vector<CzxGameObject>& gameObjects);  // 遍历场景中的对象并执行绘制调用。
 	private:
-		void createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout textureSetLayout);  // 创建管线布局，定义着色器可访问的推送常量和资源绑定。
+		void createPipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts);  // 创建管线布局，定义着色器可访问的推送常量和资源绑定。
 		void createPipeline(VkRenderPass renderPass);  // 使用当前渲染通道创建图形管线。
 
 		CzxDevice& m_device;  // 对设备对象的引用，提供逻辑设备和资源创建能力。

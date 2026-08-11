@@ -153,9 +153,9 @@ namespace czx {
 		configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;	// 禁用图元重启；仅STRIP条带拓扑时为VK_TRUE来通过插入特殊索引0xFFFF/0xFFFFFF截断条带，而不用重绑定顶点缓冲区  // 当前不需要条带拓扑的特殊截断，因此关闭图元重启。
 
 		configInfo.viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;  // 设置视口状态结构体类型，后续管线会用它定义渲染范围。
-		configInfo.viewportInfo.viewportCount = 1;						// 单视口  // 当前只使用一个视口，覆盖整个交换链图像区域。
+		configInfo.viewportInfo.viewportCount = 1;						// 单视口  // 限定并转换图像在窗口的显示范围
 		configInfo.viewportInfo.pViewports = nullptr;  // 视口数组指针置空，表示使用默认视口配置。
-		configInfo.viewportInfo.scissorCount = 1;						// 单裁剪矩形  // 当前只使用一个裁剪矩形，裁掉超出窗口范围的部分。
+		configInfo.viewportInfo.scissorCount = 1;						// 单裁剪矩形  // 当前只使用一个裁剪矩形，裁掉超出裁剪窗口范围的数据。
 		configInfo.viewportInfo.pScissors = nullptr;  // 裁剪矩形数组指针置空，表示使用默认裁剪配置。
 
 		// 配置光栅化设置
@@ -213,7 +213,7 @@ namespace czx {
 		configInfo.depthStencilInfo.front = {};							// 正面模板测试参数  // 正面模板测试参数留空，表示不启用模板测试。
 		configInfo.depthStencilInfo.back = {};							// 背面模板测试参数  // 背面模板测试参数留空，表示不启用模板测试。
 
-		configInfo.dynamicStateEnables = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };  // 设置动态状态集合，允许运行时修改视口和裁剪矩形。
+		configInfo.dynamicStateEnables = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };  // 设置动态状态集合，允许不重新创建管线情况下绘制时修改视口和裁剪矩形。
 		configInfo.dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;  // 设置动态状态结构体类型。
 		configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();  // 把动态状态数组指针绑定到结构体中。
 		configInfo.dynamicStateInfo.dynamicStateCount = configInfo.dynamicStateEnables.size();  // 设置动态状态数量为2。

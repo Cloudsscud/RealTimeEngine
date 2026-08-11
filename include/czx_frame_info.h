@@ -12,6 +12,5 @@ namespace czx {
 		VkCommandBuffer commandBuffer;
 		CzxCamera& camera;
 		VkDescriptorSet globalDescriptorSet;
-		VkDescriptorSet textureDescriptorSet;
 	};
 }	// namespace czx

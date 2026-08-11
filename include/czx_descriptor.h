@@ -9,7 +9,6 @@
 
 namespace czx {
 
-    //
     class CzxDescriptorSetLayout {
     public:
         // 辅助类，用于创建管道所需的蓝图对象
@@ -96,7 +95,7 @@ namespace czx {
         CzxDescriptorWriter(CzxDescriptorSetLayout& setLayout, CzxDescriptorPool& pool);
 
         CzxDescriptorWriter& writeBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo);
-        CzxDescriptorWriter& writeImage(uint32_t binding, VkDescriptorImageInfo* imageInfo);
+        CzxDescriptorWriter& writeImage(uint32_t binding, const VkDescriptorImageInfo* imageInfo);
 
         bool build(VkDescriptorSet& set);
         void overwrite(VkDescriptorSet& set);

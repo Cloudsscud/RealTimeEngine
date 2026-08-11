@@ -113,7 +113,8 @@ namespace czx {
         submitInfo.signalSemaphoreCount = 1;  // 只触发一个信号量。
         submitInfo.pSignalSemaphores = signalSemaphores;  // 指向信号量数组。
 
-        vkResetFences(m_device.device(), 1, &m_inFlightFences[m_currentFrame]);  // 重置当前帧围栏，准备下一次提交时重新使用。
+        vkResetFences(m_device.device(), 1, &m_inFlightFences[m_currentFrame]);  // 重置当前帧围栏，避免重建交换链导致死锁
+
         if (vkQueueSubmit(m_device.graphicsQueue(), 1, &submitInfo, m_inFlightFences[m_currentFrame]) !=
             VK_SUCCESS) {  // 把提交信息送到图形队列，使用当前帧围栏作为完成信号。
             throw std::runtime_error("failed to submit draw command buffer!");  // 提交失败时抛出异常。
@@ -142,9 +143,9 @@ namespace czx {
     void CzxSwapChain::createSwapChain() {  // 这个函数从设备能力和窗口信息中选出最合适的交换链参数并创建交换链。
         SwapChainSupportDetails swapChainSupport = m_device.getSwapChainSupport();  // 获取当前物理设备对交换链的支持细节。
 
-        VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);  // 选择颜色格式。
-        VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);  // 选择呈现模式。
-        VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);  // 选择交换链尺寸。
+        VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);  // 选择像素的颜色格式
+        VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);  // 选择呈现模式,决定何时将图像呈现到屏幕上
+        VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);  // 选择最终的交换链尺寸（实际显示时的范围）
 
         uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;  // 至少多申请一张图像，避免前后帧竞争。
         if (swapChainSupport.capabilities.maxImageCount > 0 &&
@@ -155,7 +156,6 @@ namespace czx {
         VkSwapchainCreateInfoKHR createInfo = {};  // 创建交换链创建信息结构体，保存所有创建参数。
         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;  // 标记结构体类型。
         createInfo.surface = m_device.surface();  // 指定当前窗口对应的Vulkan表面。
-
         createInfo.minImageCount = imageCount;  // 设置交换链至少包含多少张图像。
         createInfo.imageFormat = surfaceFormat.format;  // 设置交换链图像格式。
         createInfo.imageColorSpace = surfaceFormat.colorSpace;  // 设置颜色空间。
@@ -167,21 +167,21 @@ namespace czx {
         uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value()};  // 把两个队列族索引组合成数组。
 
         if (indices.graphicsFamily != indices.presentFamily) {  // 当图形和呈现不在同一个队列族时，使用并发共享模式。
-            createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;  // 允许图像在两个队列族之间共享。
-            createInfo.queueFamilyIndexCount = 2;  // 指定共享队列族数量为2。
-            createInfo.pQueueFamilyIndices = queueFamilyIndices;  // 指向共享队列族索引数组。
+            createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;  // 允许图像在队列族之间共享
+            createInfo.queueFamilyIndexCount = 2;  // 指定共享队列族数量为2
+            createInfo.pQueueFamilyIndices = queueFamilyIndices;  // 指向共享队列族索引数组
         }
         else {  // 若两个队列族相同，则使用独占模式，减少同步开销。
-            createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;  // 指定图像只由一个队列族拥有。
-            createInfo.queueFamilyIndexCount = 0;      // Optional  // 不指定额外队列族，保持默认。
-            createInfo.pQueueFamilyIndices = nullptr;  // Optional  // 不使用额外队列族数组。
+            createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;  // 指定一个图像一次只由一个队列族拥有，其他队列族使用前需显式转换所有权
+            createInfo.queueFamilyIndexCount = 0;      // Optional  // 不指定额外队列族，保持默认
+            createInfo.pQueueFamilyIndices = nullptr;  // Optional  // 不使用额外队列族数组
         }
 
-        createInfo.preTransform = swapChainSupport.capabilities.currentTransform;  // 保留表面当前的预变换方式。
-        createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;  // 设置合成方式为不透明，适合普通窗口显示。
+        createInfo.preTransform = swapChainSupport.capabilities.currentTransform;  // 保留表面当前的预变换方式，可以对交换链内的图像进行特殊变换(图像整体的旋转/翻转)
+        createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;  // 设置合成方式为不透明，适合普通窗口显示；窗口级别的混合
 
         createInfo.presentMode = presentMode;  // 设置实际使用的呈现模式。
-        createInfo.clipped = VK_TRUE;  // 开启裁剪，避免渲染内容遮挡窗口外的区域。
+        createInfo.clipped = VK_TRUE;  // 开启裁剪，避免渲染内容遮挡窗口外的区域，常见于处于底层时的窗口被覆盖表现
 
         createInfo.oldSwapchain = m_oldSwapChain == nullptr ? VK_NULL_HANDLE : m_oldSwapChain->m_swapChain;  // 如果存在旧交换链，就将其作为重建时的旧对象。
 
@@ -189,12 +189,14 @@ namespace czx {
             throw std::runtime_error("failed to create swap chain!");  // 创建失败时抛出异常。
         }
 
+
+
         // we only specified a minimum number of images in the swap chain, so the implementation is
         // allowed to create a swap chain with more. That's why we'll first query the final number of
         // images with vkGetSwapchainImagesKHR, then resize the container and finally call it again to
         // retrieve the handles.
         vkGetSwapchainImagesKHR(m_device.device(), m_swapChain, &imageCount, nullptr);  // 先查询实际创建出来的图像数量。
-        m_swapChainImages.resize(imageCount);  // 根据实际数量调整容器大小。
+        m_swapChainImages.resize(imageCount);  // 根据实际数量调整容器大小
         vkGetSwapchainImagesKHR(m_device.device(), m_swapChain, &imageCount, m_swapChainImages.data());  // 把交换链中所有图像句柄读出来保存。
 
         m_swapChainImageFormat = surfaceFormat.format;  // 保存当前交换链图像格式，后续创建ImageView和RenderPass时要复用。
@@ -242,12 +244,12 @@ namespace czx {
         VkAttachmentDescription colorAttachment = {};  // 创建颜色附件描述结构体，定义交换链图像作为颜色输出时的规则。
         colorAttachment.format = getSwapChainImageFormat();  // 复用交换链图像格式，保证与颜色目标一致。
         colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;  // 关闭多重采样。
-        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;  // 每次开始渲染时清空颜色缓冲。
+        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;  // 每次开始渲染时清空颜色缓冲；不清空则在移动时出现不消除的拖影
         colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;  // 渲染后需要保存颜色结果，供显示。
         colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;  // 模板缓冲不需要存储。
         colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;  // 模板缓冲不需要加载。
-        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;  // 初始布局未定义，等渲染前转换.
-        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;  // 渲染结束后布局适合提交到交换链显示。
+        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;  // 初始布局未定义，等渲染前转换
+        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;  // 渲染结束后布局适合提交到交换链显示
 
         VkAttachmentReference colorAttachmentRef = {};  // 创建颜色附件引用，说明子通道如何访问颜色附件。
         colorAttachmentRef.attachment = 0;  // 该引用对应第一个附件，也就是颜色附件。
@@ -258,13 +260,14 @@ namespace czx {
         subpass.colorAttachmentCount = 1;  // 该子通道只使用一个颜色附件。
         subpass.pColorAttachments = &colorAttachmentRef;  // 指向颜色附件引用。
         subpass.pDepthStencilAttachment = &depthAttachmentRef;  // 指向深度附件引用，启用深度测试。
+        // inputAttachments着色器读入附件、resolve~用于多重采样颜色附件的附件、preserve~本subpass不用但必须保留数据的附件
 
         VkSubpassDependency dependency = {};  // 创建子通道依赖，定义前后子通道之间的访问和阶段同步要求。
-        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;  // 依赖来自外部，也就是上一个渲染流程或外部操作。
+        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;  // 子通道起始依赖
         dependency.srcAccessMask = 0;  // 外部阶段刚开始时没有访问权限要求。
         dependency.srcStageMask =
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;  // 说明外部阶段需要在颜色输出和早期深度测试阶段完成。
-        dependency.dstSubpass = 0;  // 目标子通道是当前主子通道。
+        dependency.dstSubpass = 0;  // 指定下一个子通道的索引，此处为本身
         dependency.dstStageMask =
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;  // 目标子通道在颜色输出和早期深度测试阶段执行。
         dependency.dstAccessMask =
@@ -275,10 +278,10 @@ namespace czx {
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;  // 标记结构体类型。
         renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());  // 设置附件数量。
         renderPassInfo.pAttachments = attachments.data();  // 指向附件数组。
-        renderPassInfo.subpassCount = 1;  // 只定义一个子通道。
-        renderPassInfo.pSubpasses = &subpass;  // 指向子通道描述。
-        renderPassInfo.dependencyCount = 1;  // 只有一个依赖关系。
-        renderPassInfo.pDependencies = &dependency;  // 指向依赖描述。
+        renderPassInfo.subpassCount = 1;  // 只定义一个子通道
+        renderPassInfo.pSubpasses = &subpass;  // 指向子通道描述
+        renderPassInfo.dependencyCount = 1;  // 只有一个依赖关系
+        renderPassInfo.pDependencies = &dependency;  // 子通道指向依赖描述
 
         if (vkCreateRenderPass(m_device.device(), &renderPassInfo, nullptr, &m_renderPass) != VK_SUCCESS) {  // 根据上面的配置真正创建渲染通道对象。
             throw std::runtime_error("failed to create render pass!");  // 创建失败时抛出异常。
@@ -299,7 +302,7 @@ namespace czx {
             framebufferInfo.pAttachments = attachments.data();  // 指向附件数组。
             framebufferInfo.width = swapChainExtent.width;  // 设置帧缓冲宽度。
             framebufferInfo.height = swapChainExtent.height;  // 设置帧缓冲高度。
-            framebufferInfo.layers = 1;  // 只使用单层，适合普通2D渲染目标。
+            framebufferInfo.layers = 1;  // 交换链目前只使用单层图像
 
             if (vkCreateFramebuffer(
                 m_device.device(),
@@ -404,9 +407,7 @@ namespace czx {
     VkPresentModeKHR CzxSwapChain::chooseSwapPresentMode(
         const std::vector<VkPresentModeKHR>& availablePresentModes) {  // 这个函数用于选择交换链的显示同步方式。
 
-        // FIFO，GPU处理快时会闲置，直到下一周期交换链进行图像交换的buffer
-
-        //mailbox，GPU满载，丢弃并覆盖较旧的后缓冲，可以降低输入延迟，功耗高
+        //mailbox，GPU满载，丢弃并覆盖较旧的帧缓冲，确保每次刷新呈现的图像都是输入指令后的结果，可以降低输入延迟，功耗高
         //for (const auto& availablePresentMode : availablePresentModes) {
         //    if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
         //        std::cout << "Present mode: Mailbox" << std::endl;
@@ -414,7 +415,7 @@ namespace czx {
         //    }
         //}
 
-        // immediate立即模式不与刷新同步，更新图像无同步，高功耗，撕裂；了解性能和maxFPS用
+        // immediate立即模式不与刷新同步，更新图像无同步，高功耗，会撕裂；了解性能和maxFPS用
         // for (const auto &availablePresentMode : availablePresentModes) {
         //   if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
         //     std::cout << "Present mode: Immediate" << std::endl;
@@ -422,16 +423,17 @@ namespace czx {
         //   }
         // }
 
+        // FIFO，每次从帧缓冲队列获取队头图像，队列满时程序提交阻塞，GPU处理快时会导致闲置，直到下一次刷新交换链进行图像交换的framebuffer
         std::cout << "Present mode: V-Sync" << std::endl;  // 输出当前使用的同步策略，便于调试和确认。
         return VK_PRESENT_MODE_FIFO_KHR;  // 默认采用垂直同步模式，兼顾稳定性与兼容性。
     }
 
     // 根据窗口尺寸和表面能力计算交换链实际使用的宽高。
     VkExtent2D CzxSwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) {  // 这个函数根据表面能力和当前窗口大小计算交换链的实际尺寸。
-        if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {  // 如果表面已经给出有效当前尺寸，就直接使用它。
+        if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {  // 如果表面已经给出硬件允许的有效尺寸，就直接使用它。
             return capabilities.currentExtent;  // 返回表面当前的可用尺寸。
         }
-        else {  // 如果表面没有提供固定大小，就根据窗口尺寸和范围限制计算实际尺寸。
+        else {  // 如果表面没有提供固定大小，就根据窗口尺寸和范围限制计算实际应该显示的尺寸。
             VkExtent2D actualExtent = m_windowExtent;  // 先使用当前窗口大小作为初始尺寸。
             actualExtent.width = std::max(
                 capabilities.minImageExtent.width,  // 限制最小宽度，避免尺寸过小导致问题。

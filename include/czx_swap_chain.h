@@ -56,11 +56,11 @@ namespace czx {
         void createSyncObjects();  // 创建信号量和栅栏，用于帧同步。
 
         // Helper functions
-        VkSurfaceFormatKHR chooseSwapSurfaceFormat(  // 从可用格式中选择合适的颜色格式和颜色空间。
+        VkSurfaceFormatKHR chooseSwapSurfaceFormat(  // 像素格式，从可用格式中选择合适的颜色格式和颜色空间
             const std::vector<VkSurfaceFormatKHR>& availableFormats);
-        VkPresentModeKHR chooseSwapPresentMode(  // 从可用呈现模式中选择最适合的显示模式。
+        VkPresentModeKHR chooseSwapPresentMode(  // 从可用呈现模式中选择最适合的显示模式
             const std::vector<VkPresentModeKHR>& availablePresentModes);
-        VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);  // 根据窗口大小和设备限制选择交换链尺寸。
+        VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);  // 根据窗口大小和设备限制显式框定显示器上的显示范围。
 
         VkFormat m_swapChainImageFormat;  // 交换链图像的颜色格式。
         VkFormat m_swapChainDepthFormat;  // 深度缓冲图像格式。
@@ -69,11 +69,11 @@ namespace czx {
         std::vector<VkFramebuffer> m_swapChainFramebuffers;  // 每个交换链图像对应的帧缓冲对象。
         VkRenderPass m_renderPass;  // 当前渲染通道句柄。
 
-        std::vector<VkImage> m_depthImages;  // 深度图像句柄集合。
-        std::vector<VkDeviceMemory> m_depthImageMemorys;  // 深度图像内存对象集合。
-        std::vector<VkImageView> m_depthImageViews;  // 深度图像视图集合。
-        std::vector<VkImage> m_swapChainImages;  // 交换链图像句柄集合。
-        std::vector<VkImageView> m_swapChainImageViews;  // 交换链图像视图集合。
+        std::vector<VkImage> m_depthImages;  // 深度图像句柄集合
+        std::vector<VkDeviceMemory> m_depthImageMemorys;  // 深度图像内存对象集合
+        std::vector<VkImageView> m_depthImageViews;  // 深度图像视图集合
+        std::vector<VkImage> m_swapChainImages;  // 交换链图像句柄集合，管理GPU内存申请的图像空间
+        std::vector<VkImageView> m_swapChainImageViews;  // 交换链图像视图集合，管理相对应的图像的布局
 
         CzxDevice& m_device;  // 对设备对象的引用，所有资源都依托于这个逻辑设备。
         VkExtent2D m_windowExtent;  // 当前窗口的尺寸。
@@ -81,8 +81,10 @@ namespace czx {
         VkSwapchainKHR m_swapChain;  // Vulkan交换链句柄。
         std::shared_ptr<CzxSwapChain> m_oldSwapChain;  // 旧交换链引用，用于重建时释放旧资源。
 
-        std::vector<VkSemaphore> m_imageAvailableSemaphores;  // 用于表示图像可用的信号量。
-        std::vector<VkSemaphore> m_renderFinishedSemaphores;  // 用于表示渲染完成的信号量。
+        // GPU同步
+        std::vector<VkSemaphore> m_imageAvailableSemaphores;  // 用于表示图像是否空闲可用的信号量。
+        std::vector<VkSemaphore> m_renderFinishedSemaphores;  // 用于表示渲染是否完成、允许呈现的信号量。
+        // CPU与GPU共享，在CPU上等待GPU完成
         std::vector<VkFence> m_inFlightFences;  // 每帧对应的提交完成栅栏。
         std::vector<VkFence> m_imagesInFlight;  // 跟踪每个图像当前属于哪一帧。
         size_t m_currentFrame = 0;  // 当前正在使用的帧索引。

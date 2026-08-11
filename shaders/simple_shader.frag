@@ -10,7 +10,7 @@ layout(push_constant) uniform Push{
 	mat4 normalMatrix;
 } push;
 
-layout(set = 1, binding = 0) uniform sampler2D texSampler;
+layout(set = 0, binding = 1) uniform sampler2D texSampler;
 
 
 void main(){

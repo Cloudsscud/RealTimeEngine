@@ -34,7 +34,7 @@ namespace czx {
         CzxDevice& device, std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings)
         : m_device{ device }, m_bindings{ bindings } {
         std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings{};
-        for (auto kv : bindings) {
+        for (auto& kv : bindings) {
             setLayoutBindings.push_back(kv.second);
         }
 
@@ -159,7 +159,7 @@ namespace czx {
     }
 
     CzxDescriptorWriter& CzxDescriptorWriter::writeImage(
-        uint32_t binding, VkDescriptorImageInfo* imageInfo) {
+        uint32_t binding, const VkDescriptorImageInfo* imageInfo) {
         assert(m_setLayout.m_bindings.count(binding) == 1 && "Layout does not contain specified binding");
 
         auto& bindingDescription = m_setLayout.m_bindings[binding];

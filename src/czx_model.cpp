@@ -25,6 +25,133 @@ namespace std {
 }
 
 namespace czx {
+
+	// 描述顶点缓冲中的顶点数据如何以连续绑定方式进行输入。
+	std::vector<VkVertexInputBindingDescription> CzxModel::Vertex::getBindingDescriptions() {
+		std::vector< VkVertexInputBindingDescription> bindingDescriptions(1);
+		bindingDescriptions[0].binding = 0;
+		bindingDescriptions[0].stride = sizeof(Vertex);
+		bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;	// 逐顶点输入，后续实例化渲染可以INSTANCE
+		return bindingDescriptions;
+	}
+
+	// 描述顶点属性在缓冲区中的布局，告诉Vulkan顶点输入属性的布局格式
+	std::vector<VkVertexInputAttributeDescription> CzxModel::Vertex::getAttributeDescriptions() {
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
+
+		attributeDescriptions.push_back({ 0, 0, VK_FORMAT_R32G32B32_SFLOAT , offsetof(Vertex, position) });
+		attributeDescriptions.push_back({ 1, 0, VK_FORMAT_R32G32B32_SFLOAT , offsetof(Vertex, color) });
+		attributeDescriptions.push_back({ 2, 0, VK_FORMAT_R32G32B32_SFLOAT , offsetof(Vertex, normal) });
+		attributeDescriptions.push_back({ 3, 0, VK_FORMAT_R32G32_SFLOAT , offsetof(Vertex, uv) });
+
+		//attributeDescriptions[0].location = 0; // 对应vertex shader对应的position
+		//attributeDescriptions[0].binding = 0;	// 绑定描述的对应绑定来源数据
+		//attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;	// vec3数据格式
+		//attributeDescriptions[0].offset = offsetof(Vertex, position);	// 自行计算顶点属性中成员变量的偏移
+
+		//attributeDescriptions[1].location = 1; // 对应vertex shader对应的color
+		//attributeDescriptions[1].binding = 0;	// 与位置交错绑定
+		//attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;	// vec3
+		//attributeDescriptions[1].offset = offsetof(Vertex, color);
+		return attributeDescriptions;
+	}
+
+	void CzxModel::Builder::loadModel(const std::string& filePath, const std::string& textureFilePath) {
+		// 使用 rapidobj 解析 OBJ 文件
+		rapidobj::Result result = rapidobj::ParseFile(filePath);
+
+		if (result.error) {
+			throw std::runtime_error("Failed to load OBJ file: " + filePath +
+				"\nError: " + result.error.line);
+		}
+
+		// 获取属性数据引用
+		auto& positions = result.attributes.positions;
+		auto& normals = result.attributes.normals;
+		auto& texcoords = result.attributes.texcoords;
+
+		// 清空现有数据
+		vertices.clear();
+		indices.clear();
+
+		std::unordered_map<Vertex, uint32_t> uniqueVertices{};	// 去重vertices得到indices
+		// 遍历所有形状（mesh 组）
+		for (const auto& shape : result.shapes) {
+			// 遍历该形状的所有索引（三角形顶点）
+			for (const auto& index : shape.mesh.indices) {
+				Vertex vertex{};
+
+				// 位置
+				if (index.position_index >= 0) {
+					vertex.position = {
+						positions[3 * index.position_index + 0],
+						1.f - positions[3 * index.position_index + 1],
+						positions[3 * index.position_index + 2]
+					};
+				}
+				else {
+					vertex.position = { 0.0f, 0.0f, 0.0f };
+				}
+
+				// 法线
+				if (index.normal_index >= 0) {
+					vertex.normal = {
+						normals[3 * index.normal_index + 0],
+						normals[3 * index.normal_index + 1],
+						normals[3 * index.normal_index + 2]
+					};
+				}
+				else {
+					// 如果没有法线，使用默认值
+					vertex.normal = { 0.0f, 0.0f, 1.0f };
+				}
+
+				// 纹理坐标
+				if (index.texcoord_index >= 0) {
+					vertex.uv = {
+						texcoords[2 * index.texcoord_index + 0],
+						1.0f - texcoords[2 * index.texcoord_index + 1]  // Vulkan 需要翻转 Y 轴
+					};
+				}
+				else {
+					vertex.uv = { 0.0f, 0.0f };
+				}
+
+				// 临时颜色
+				vertex.color = glm::vec3{ 1.f };
+
+				if (uniqueVertices.count(vertex) == 0) {
+					uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+					vertices.push_back(vertex);
+				}
+				indices.push_back(uniqueVertices[vertex]);
+			}
+		}
+
+		// 输出加载信息
+		std::cout << "Loaded model: " << filePath << std::endl;
+		std::cout << "  Vertices: " << vertices.size() << std::endl;
+		std::cout << "  Triangles: " << indices.size() / 3 << std::endl;
+		std::cout << "  Materials: " << result.materials.size() << std::endl;
+
+		// 默认加载
+		//Loaded model: D:/PG/RealTimeEngine/models/WhiteWeddingDressGirl/WhiteWeddingDressGirl.obj
+		//Vertices: 2917794
+		//Triangles : 972598
+		//Materials : 1
+
+		// hash去重vertices与indices
+		// Loaded model: D:/PG/RealTimeEngine/models/WhiteWeddingDressGirl/WhiteWeddingDressGirl.obj
+		// Vertices: 530843
+		// Triangles : 972598
+		// Materials : 1
+
+		if (!textureFilePath.empty()) {
+			m_textureFilePath = textureFilePath;
+		}
+	}
+
+
 	// 构造函数会把顶点数据上传到GPU，并为后续绘制准备好顶点缓冲区。
 	CzxModel::CzxModel(CzxDevice& device, const CzxModel::Builder& builder)
 		:m_device(device)
@@ -186,130 +313,5 @@ namespace czx {
 		}
 	}
 
-	// 描述顶点缓冲中的顶点数据如何以连续绑定方式进行输入。
-	std::vector<VkVertexInputBindingDescription> CzxModel::Vertex::getBindingDescriptions() {
-		std::vector< VkVertexInputBindingDescription> bindingDescriptions(1);
-		bindingDescriptions[0].binding = 0;
-		bindingDescriptions[0].stride = sizeof(Vertex);
-		bindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		return bindingDescriptions;
-	}
-
-	// 描述顶点属性在缓冲区中的布局，告诉Vulkan顶点输入属性的布局格式
-	std::vector<VkVertexInputAttributeDescription> CzxModel::Vertex::getAttributeDescriptions() {
-		std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
-
-		attributeDescriptions.push_back({ 0, 0, VK_FORMAT_R32G32B32_SFLOAT , offsetof(Vertex, position) });
-		attributeDescriptions.push_back({ 1, 0, VK_FORMAT_R32G32B32_SFLOAT , offsetof(Vertex, color) });
-		attributeDescriptions.push_back({ 2, 0, VK_FORMAT_R32G32B32_SFLOAT , offsetof(Vertex, normal) });
-		attributeDescriptions.push_back({ 3, 0, VK_FORMAT_R32G32_SFLOAT , offsetof(Vertex, uv) });
-
-		//attributeDescriptions[0].location = 0; // 对应vertex shader对应的position
-		//attributeDescriptions[0].binding = 0;
-		//attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;	// vec3
-		//attributeDescriptions[0].offset = offsetof(Vertex, position);	// 自行计算顶点属性中成员变量的偏移
-
-		//attributeDescriptions[1].location = 1; // 对应vertex shader对应的color
-		//attributeDescriptions[1].binding = 0;	// 与位置交错绑定
-		//attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;	// vec3
-		//attributeDescriptions[1].offset = offsetof(Vertex, color);
-		return attributeDescriptions;
-	}
-
-	void CzxModel::Builder::loadModel(const std::string& filePath, const std::string& textureFilePath) {
-		// 使用 rapidobj 解析 OBJ 文件
-		rapidobj::Result result = rapidobj::ParseFile(filePath);
-
-		if (result.error) {
-			throw std::runtime_error("Failed to load OBJ file: " + filePath +
-				"\nError: " + result.error.line);
-		}
-
-		// 获取属性数据引用
-		auto& positions = result.attributes.positions;
-		auto& normals = result.attributes.normals;
-		auto& texcoords = result.attributes.texcoords;
-
-		// 清空现有数据
-		vertices.clear();
-		indices.clear();
-
-		std::unordered_map<Vertex, uint32_t> uniqueVertices{};	// 去重vertices得到indices
-		// 遍历所有形状（mesh 组）
-		for (const auto& shape : result.shapes) {
-			// 遍历该形状的所有索引（三角形顶点）
-			for (const auto& index : shape.mesh.indices) {
-				Vertex vertex{};
-
-				// 位置
-				if (index.position_index >= 0) {
-					vertex.position = {
-						positions[3 * index.position_index + 0],
-						1.f - positions[3 * index.position_index + 1],
-						positions[3 * index.position_index + 2]
-					};
-				}
-				else {
-					vertex.position = { 0.0f, 0.0f, 0.0f };
-				}
-
-				// 法线
-				if (index.normal_index >= 0) {
-					vertex.normal = {
-						normals[3 * index.normal_index + 0],
-						normals[3 * index.normal_index + 1],
-						normals[3 * index.normal_index + 2]
-					};
-				}
-				else {
-					// 如果没有法线，使用默认值
-					vertex.normal = { 0.0f, 0.0f, 1.0f };
-				}
-
-				// 纹理坐标
-				if (index.texcoord_index >= 0) {
-					vertex.uv = {
-						texcoords[2 * index.texcoord_index + 0],
-						1.0f - texcoords[2 * index.texcoord_index + 1]  // Vulkan 需要翻转 Y 轴
-					};
-				}
-				else {
-					vertex.uv = { 0.0f, 0.0f };
-				}
-
-				// 临时颜色
-				vertex.color = glm::vec3{1.f};
-
-				if (uniqueVertices.count(vertex) == 0) {
-					uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-					vertices.push_back(vertex);
-				}
-				indices.push_back(uniqueVertices[vertex]);
-			}
-		}
-
-		// 输出加载信息
-		std::cout << "Loaded model: " << filePath << std::endl;
-		std::cout << "  Vertices: " << vertices.size() << std::endl;
-		std::cout << "  Triangles: " << indices.size() / 3 << std::endl;
-		std::cout << "  Materials: " << result.materials.size() << std::endl;
-
-		// 默认加载
-		//Loaded model: D:/PG/RealTimeEngine/models/WhiteWeddingDressGirl/WhiteWeddingDressGirl.obj
-		//Vertices: 2917794
-		//Triangles : 972598
-		//Materials : 1
-
-		// hash去重vertices与indices
-		// Loaded model: D:/PG/RealTimeEngine/models/WhiteWeddingDressGirl/WhiteWeddingDressGirl.obj
-		// Vertices: 530843
-		// Triangles : 972598
-		// Materials : 1
-
-		if (!textureFilePath.empty()) {
-			m_textureFilePath = textureFilePath;
-		}
-	}
-
-
+	
 }	// namespace czx
