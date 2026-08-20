@@ -25,8 +25,9 @@ namespace czx {
 		VkPipelineDynamicStateCreateInfo dynamicStateInfo{};  // 描述动态状态的配置结构体
 		// 默认管线配置不处理管线布局与渲染通道，在函数外设置
 		VkPipelineLayout pipelineLayout = nullptr;  // 描述资源绑定布局，告诉管线如何访问着色器资源
-		VkRenderPass renderPass = nullptr;  // 描述帧缓冲的格式、采样数和加载存储操作
-		uint32_t subpass = 0;  // 指定渲染通道中的子通道索引
+		VkFormat colorAttachmentFormat = VK_FORMAT_UNDEFINED;
+		VkFormat depthAttachmentFormat = VK_FORMAT_UNDEFINED;
+		VkPipelineRenderingCreateInfo renderingInfo{};
 	};
 
 	// 负责从SPIR-V着色器文件中创建并管理Vulkan图形管线，封装着色器模块和渲染状态配置
@@ -46,7 +47,7 @@ namespace czx {
 
 		void bind(VkCommandBuffer commandBuffer);  // 将当前管线绑定到命令缓冲区，后续绘制会使用这条管线。
 
-		static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);  // 提供一组默认的管线配置，供调用方快速初始化。
+		static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo,VkFormat colorFormat, VkFormat depthFormat);  // 提供一组默认的管线配置，供调用方快速初始化。
 
 	private:
 		static std::vector<char> readFile(const std::string& filePath);  // 从磁盘读取SPIR-V着色器文件内容。

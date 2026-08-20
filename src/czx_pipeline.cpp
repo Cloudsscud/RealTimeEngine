@@ -67,9 +67,6 @@ namespace czx {
 		assert(
 			configInfo.pipelineLayout != VK_NULL_HANDLE &&
 			"Cannot create graphics pipeline:: no pipelineLayout provided in configInfo");
-		assert(
-			configInfo.renderPass != VK_NULL_HANDLE &&
-			"Cannot create graphics pipeline:: no renderPass provided in configInfo");
 
 		// 读取shader内容，栈上存储自动销毁
 		auto vertCode = readFile(vertFilePath);
@@ -114,6 +111,7 @@ namespace czx {
 		// 创建图形管线
 		VkGraphicsPipelineCreateInfo pipelineInfo{
 			.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+			.pNext = &configInfo.renderingInfo,
 			.stageCount = ARRAY_SIZE_IN_ELEMENTS(shaderStages),		// 使用到的所有着色器
 			.pStages = &shaderStages[0],
 			.pVertexInputState = &vertexInputInfo,					// 顶点输入
@@ -126,8 +124,8 @@ namespace czx {
 			.pDynamicState = &configInfo.dynamicStateInfo,			// optional动态状态;nullptr所有状态创建时固定
 
 			.layout = configInfo.pipelineLayout,		// 描述符集与推送常量信息
-			.renderPass = configInfo.renderPass,		// 管线即将被使用的渲染通道
-			.subpass = configInfo.subpass,				// 专用于渲染通道内的特定子通道
+			.renderPass = nullptr,		// 改为动态渲染
+			.subpass = 0,
 
 			// 优化点1 管线继承:多管线创建优化
 			.basePipelineHandle = VK_NULL_HANDLE,	// 已有管线的句柄，从该管线继承状态
@@ -150,7 +148,7 @@ namespace czx {
 
 
 	// 默认管线配置
-	void CzxPipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) {  // 这个函数给管线配置一个通用且稳定的默认状态，后续可以在此基础上进行微调。
+	void CzxPipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo, VkFormat colorFormat, VkFormat depthFormat) {  // 这个函数给管线配置一个通用且稳定的默认状态，后续可以在此基础上进行微调。
 		// 输入装配设置
 		configInfo.inputAssemblyInfo = {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
@@ -241,7 +239,17 @@ namespace czx {
 		configInfo.dynamicStateInfo.dynamicStateCount = configInfo.dynamicStateEnables.size();  // 设置动态状态数量为2。
 		configInfo.dynamicStateInfo.flags = 0;  // 动态状态创建时没有额外标志。
 
-		
+		configInfo.colorAttachmentFormat = colorFormat;
+		configInfo.depthAttachmentFormat = depthFormat;
+
+		configInfo.renderingInfo = {
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
+			.pNext = nullptr,
+			.colorAttachmentCount = 1,
+			.pColorAttachmentFormats = &configInfo.colorAttachmentFormat,
+			.depthAttachmentFormat = configInfo.depthAttachmentFormat,
+			.stencilAttachmentFormat = VK_FORMAT_UNDEFINED
+		};
 	}
 
 }

@@ -20,7 +20,10 @@ namespace czx {
 		CzxRenderer(const CzxRenderer&) = delete;  // 禁止拷贝，避免两个渲染器同时管理同一帧资源。
 		CzxRenderer& operator=(const CzxRenderer&) = delete;  // 禁止赋值，防止重复释放命令缓冲区和交换链句柄。
 
-		VkRenderPass getSwapChainRenderPass() const { return m_swapChain->getRenderPass(); }  // 返回当前交换链使用的渲染通道句柄。
+		VkFormat getSwapChainColorFormat() const { return m_swapChain->getSwapChainImageFormat(); }
+		VkFormat getSwapChainDepthFormat() const { return m_swapChain->getSwapChainDepthFormat(); }
+		uint32_t getSwapChainImageCount() const { return m_swapChain->imageCount(); }
+
 		float getAspectRatio() const { return m_swapChain->extentAspectRatio(); }
 		bool isFrameInProgress() const { return m_isFrameStarted; }  // 判断当前是否正在记录一帧命令。
 
@@ -36,8 +39,8 @@ namespace czx {
 
 		VkCommandBuffer beginFrame();  // 开始一帧渲染，获取可用图像并开始记录命令。
 		void endFrame();  // 结束一帧渲染，提交命令并呈现图像。
-		void beginSwapChainRenderPass(VkCommandBuffer commandbuffer);  // 开始当前交换链对应的渲染通道。
-		void endSwapChainRenderPass(VkCommandBuffer commandbuffer);  // 结束当前渲染通道。
+		void beginRendering(VkCommandBuffer commandbuffer);  // 开始当前交换链对应的渲染通道。
+		void endRendering(VkCommandBuffer commandbuffer);  // 结束当前渲染通道。
 
 	private:
 		void createCommandBuffers();

@@ -19,15 +19,14 @@ namespace czx {
         static constexpr int MAX_FRAMES_IN_FLIGHT = 3;  // 同时允许两个帧在飞行中，常用于双缓冲/三重缓冲的同步
 
         CzxSwapChain(CzxDevice& deviceRef, VkExtent2D windowExtent);  // 使用当前窗口尺寸创建新的交换链。
-        CzxSwapChain(CzxDevice& deviceRef, VkExtent2D windowExtent, std::shared_ptr<CzxSwapChain> previous);  // 通过旧交换链重建新交换链，便于窗口尺寸变化时平滑替换。
         ~CzxSwapChain();  // 销毁交换链及其相关资源。
 
         CzxSwapChain(const CzxSwapChain&) = delete;  // 禁止拷贝，避免多个对象同时持有同一交换链资源。
         CzxSwapChain& operator=(const CzxSwapChain&) = delete;  // 禁止赋值，避免重复释放句柄。
 
-        VkFramebuffer getFrameBuffer(int index) { return m_swapChainFramebuffers[index]; }  // 返回指定图像索引对应的帧缓冲对象。
-        VkRenderPass getRenderPass() { return m_renderPass; }  // 返回渲染通道句柄，供渲染器创建渲染过程。
-        VkImageView getImageView(int index) { return m_imageViews[index]; }  // 返回指定交换链图像的视图句柄。
+        VkImage getImage(int index) { return m_images[index]; }
+        VkImageView getImageView(int index) { return m_imageViews[index]; }
+        VkImageView getDepthImageView(int index) { return m_depthTextures[index].m_imageView; }
         size_t imageCount() { return m_images.size(); }  // 返回交换链图像数量。
         VkFormat getSwapChainImageFormat() const{ return m_swapChainSurfaceFormat.format; }  // 返回交换链图像格式
         VkFormat getSwapChainDepthFormat()const { return m_device.physicalDevice().Selected().m_depthFormat; }  // 返回交换链图像格式
@@ -48,12 +47,10 @@ namespace czx {
         }
 
     private:
-        void init();  // 按顺序完成交换链的初始化流程。
+        void init();
         void createSwapChain();  // 创建交换链对象、图像视图
-        void createDepthResources();  // 创建深度缓冲资源，供深度测试使用。
-        void createRenderPass();  // 创建渲染通道，描述颜色和深度附件的操作。
-        void createFramebuffers();  // 为每个交换链图像创建对应帧缓冲对象。
-        void createSyncObjects();  // 创建信号量和栅栏，用于帧同步。
+        void createDepthResources();  // 创建深度缓冲资源
+        void createSyncObjects();  // 创建信号量和栅栏，用于帧同步
 
 
         // 从表面属性选择交换链图像数量,默认双缓冲以避免画面撕裂
@@ -76,9 +73,6 @@ namespace czx {
 
         std::vector<VkImage> m_images;  // 交换链图像句柄集合，管理GPU内存申请的图像空间
         std::vector<VkImageView> m_imageViews;  // 交换链图像视图集合，管理相对应的图像的布局
-
-        VkRenderPass m_renderPass;  // 当前渲染通道句柄
-        std::vector<VkFramebuffer> m_swapChainFramebuffers;  // 每个交换链图像对应的帧缓冲对象
 
         std::shared_ptr<CzxSwapChain> m_oldSwapChain;  // 旧交换链引用，用于重建时释放旧资源。
 

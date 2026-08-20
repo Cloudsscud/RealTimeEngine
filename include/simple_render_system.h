@@ -9,13 +9,14 @@
 #include <czx_descriptor.h>
 #include <czx_buffer.h>
 #include <czx_swap_chain.h>
-#include <unordered_map>
 
 // std
 #include <memory>
 #include <vector>
+#include <unordered_map>
 
 namespace czx {
+
 	// 全局 UBO 数据结构，与着色器匹配
 	struct GlobalUbo {
 		alignas(16) glm::mat4 projectionView{ 1.f };
@@ -24,8 +25,15 @@ namespace czx {
 
 	class SimpleRenderSystem {
 	public:
+		struct Settings {
+			glm::vec3 lightDirection = glm::normalize(glm::vec3(3.0f, -3.0f, 2.0f));	// 光照方向
+			float rotationSpeed = 0.5f;	// 模型绕自身y轴旋转速度
+			bool enableRotation = true;	// 是否启用旋转
+		};
+		Settings& getSettings() { return m_settings; }	// 暴露给imgui的可变参数
 
-		SimpleRenderSystem(CzxDevice& device, VkRenderPass renderPass);
+
+		SimpleRenderSystem(CzxDevice& device, VkFormat colorFormat, VkFormat depthFormat);
 		~SimpleRenderSystem();
 
 		SimpleRenderSystem(const SimpleRenderSystem&) = delete;  // 禁止拷贝
@@ -43,7 +51,7 @@ namespace czx {
 
 		// 管线创建
 		void createPipelineLayout();  // 创建管线布局
-		void createPipeline(VkRenderPass renderPass);
+		void createPipeline(VkFormat colorFormat, VkFormat depthFormat);
 
 		CzxDevice& m_device;
 
@@ -67,5 +75,7 @@ namespace czx {
 		std::unique_ptr<CzxPipeline> m_pipeline;  // 当前使用的图形管线对象
 
 		static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = CzxSwapChain::MAX_FRAMES_IN_FLIGHT;
+
+		Settings m_settings{};
 	};
 }	// namespace czx

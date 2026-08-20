@@ -21,6 +21,7 @@ set(GLM_DIR "${dependencies_dir}/glm" CACHE PATH "GLM directory")
 set(GLFW_SOURCE_DIR "${dependencies_dir}/GLFW/glfw-3.4/glfw-3.4" CACHE PATH "GLFW source directory")
 set(RAPID_OBJ_DIR "${dependencies_dir}/rapidobj" CACHE PATH "rapidobj source directory")
 set(STB_IMAGE_DIR "${dependencies_dir}/stb-master" CACHE PATH "stb_image source directory")
+set(IMGUI_DIR "${dependencies_dir}/IMGUI/imgui-master" CACHE PATH "imgui directory")
 
 # 查找 glslc 编译器（使用你compile.bat中的路径）
 find_program(GLSL_COMPILER
@@ -87,7 +88,7 @@ set(ENGINE_SOURCES
     src/czx_descriptor.cpp
     src/simple_render_system.cpp
     src/keyboard_movement_controller.cpp
-    
+    src/czx_imgui_renderer.cpp
 )
 
 set(ENGINE_HEADERS
@@ -107,11 +108,22 @@ set(ENGINE_HEADERS
     include/czx_frame_info.h
     include/simple_render_system.h
     include/keyboard_movement_controller.h
+    include/czx_imgui_renderer.h
 )
+
+# ========== ImGui 源文件 ==========
+set(IMGUI_SOURCES
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
+)
+list(APPEND ENGINE_SOURCES ${IMGUI_SOURCES})
 
 set(ENGINE_RESOURCES
     # 如果有资源文件，在此添加
-
 )
 
 # glfw子模块
@@ -139,6 +151,8 @@ target_include_directories(RealTimeEngine PRIVATE
     ${GLM_DIR}
     ${RAPID_OBJ_DIR}/include
     ${STB_IMAGE_DIR}/stb-master
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
 )
 
 # 链接库

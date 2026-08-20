@@ -34,20 +34,7 @@ namespace czx {
 		}
 
 		vkDeviceWaitIdle(m_device.device());
-
-		if (m_swapChain == nullptr) {
-			m_swapChain = std::make_unique<CzxSwapChain>(m_device, extent);
-		}
-		else {
-			std::shared_ptr<CzxSwapChain> oldSwapChain = std::move(m_swapChain);
-			m_swapChain = std::make_unique<CzxSwapChain>(m_device, extent, oldSwapChain);
-
-			if (!oldSwapChain->compareSwapChainFormats(*m_swapChain.get())) {
-				throw std::runtime_error("swap chain image/depth format has changed!");
-				// 边界处理：可用回调函数通知app创建了不兼容渲染通道
-			}
-
-		}
+		m_swapChain = std::make_unique<CzxSwapChain>(m_device, extent);
 	}
 
 	void CzxRenderer::createCommandBuffers() {
@@ -97,7 +84,7 @@ namespace czx {
 		m_isFrameStarted = true;
 		auto commandBuffer = getCurrentCommandBuffer();	// 逐帧添加命令
 
-		beginCommandBuffer(commandBuffer, 0);
+		beginCommandBuffer(commandBuffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
 		return commandBuffer;
 	}
@@ -124,31 +111,59 @@ namespace czx {
 	}
 
 	// 开始当前交换链图像对应的渲染通道，并设置视口与裁剪区域
-	void CzxRenderer::beginSwapChainRenderPass(VkCommandBuffer commandbuffer) {
-		assert(m_isFrameStarted && "Cannot call beginSwapChainRenderPass while frame not in progress");
-		assert(commandbuffer == getCurrentCommandBuffer() && "Cannot begin render pass on command buffer from a different frame");
+	void CzxRenderer::beginRendering(VkCommandBuffer commandbuffer) {
+		assert(m_isFrameStarted && "Cannot call beginRendering while frame not in progress");
+		assert(commandbuffer == getCurrentCommandBuffer() && "Cannot begin Rendering on command buffer from a different frame");
 
-		std::array<VkClearValue, 2> clearValue{};
-		clearValue[0].color = { 0.01f,0.01f,0.01f,0.1f };	// 只针对颜色缓冲的清除值
-		clearValue[1].depthStencil = { 1.0f, 0 };	// 只针对深度缓冲区的清除值
+		int imageIndex = getFrameIndex();
 
-		VkRenderPassBeginInfo renderPassInfo{
-			.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+		m_device.transitionImageLayout(m_swapChain->getImage(imageIndex), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		
+		VkClearValue clearColor = { .color = { 0.01f,0.01f,0.01f,0.1f } };	// 只针对颜色缓冲的清除值
+		VkClearValue clearDepth = { .depthStencil = {1.0f, 0} };	// 只针对深度缓冲区的清除值
+
+		VkRenderingAttachmentInfoKHR colorAttachment = {
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
 			.pNext = nullptr,
-			.renderPass = m_swapChain->getRenderPass(),
-			.framebuffer = m_swapChain->getFrameBuffer(m_currentImageIndex),	// 当前帧使用的图像所对应的帧缓冲
-			.renderArea = {
-				.offset = {
-				.x = 0,
-				.y = 0
-				},
-				.extent = m_swapChain->getSwapChainExtent()
-			},
-			.clearValueCount = static_cast<uint32_t>(clearValue.size()),
-			.pClearValues = clearValue.data()
+			.imageView = m_swapChain->getImageView(imageIndex),
+			.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			// 无解析功能
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,// 首个加载该附件的子通道加载数据方式：load/clear清空/dont care
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,// 最后一个使用该附件的子通道末尾存储数据：store/dont care
+			.clearValue = clearColor
 		};
 
-		vkCmdBeginRenderPass(commandbuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);	// 子通道subPass内联：子通道内容直接记录在主命令缓冲区内
+		VkRenderingAttachmentInfoKHR depthAttachment = {
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+			.pNext = nullptr,
+			.imageView = m_swapChain->getDepthImageView(imageIndex),
+			.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			.resolveMode = VK_RESOLVE_MODE_NONE,
+			.resolveImageView = VK_NULL_HANDLE,
+			.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+			.clearValue = clearDepth
+		};
+
+		VkRenderingInfoKHR renderingInfo = {
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR,
+			.renderArea = {
+				.offset = {0,0},
+				.extent = m_swapChain->getSwapChainExtent()
+			},
+			.layerCount = 1,
+			.viewMask = 0,
+			.colorAttachmentCount = 1,
+			.pColorAttachments = &colorAttachment,
+			.pDepthAttachment = &depthAttachment
+		};
+
+		vkCmdBeginRendering(commandbuffer, &renderingInfo);
 
 		// 注意：若视口与裁剪固定在管线中，则不支持窗口Resize
 		//配置视口，将NDC下的坐标映射到帧缓冲的像素区域
@@ -174,11 +189,13 @@ namespace czx {
 	}
 
 	// 结束当前渲染通道，后续命令会进入下一个渲染阶段或结束。
-	void CzxRenderer::endSwapChainRenderPass(VkCommandBuffer commandbuffer) {
-		assert(m_isFrameStarted && "Cannot call endSwapChainRenderPass while frame not in progress");
-		assert(commandbuffer == getCurrentCommandBuffer() && "Cannot end render pass on command buffer from a different frame");
+	void CzxRenderer::endRendering(VkCommandBuffer commandbuffer) {
+		assert(m_isFrameStarted && "Cannot call endRendering while frame not in progress");
+		assert(commandbuffer == getCurrentCommandBuffer() && "Cannot end Rendering on command buffer from a different frame");
 
-		vkCmdEndRenderPass(commandbuffer);
+		vkCmdEndRendering(commandbuffer);
+
+		m_device.transitionImageLayout(m_swapChain->getImage(getFrameIndex()), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 	}
 
 }	// namespace czx

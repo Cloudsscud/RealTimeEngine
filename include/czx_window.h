@@ -5,7 +5,8 @@
 #include <GLFW/glfw3.h>  // 引入GLFW窗口系统头文件，提供窗口创建、事件处理和表面创建能力。
 
 // std
-#include <string>  // 引入std::string类型，用于保存窗口标题等字符串信息。
+#include <string>
+#include <functional>
 
 namespace czx {
 
@@ -35,12 +36,18 @@ namespace czx {
 
 		// 创建vulkan窗口表面，vulkan依赖于表面来呈现图像
 		void createWindowSurface(VkInstance instance, VkSurfaceKHR* surface);  // 为当前窗口创建Vulkan呈现表面，供渲染和交换链使用。
+
+		void setKeyEventHandler(std::function<void(int key, int scancode, int action, int mods)> handler) {
+			m_keyEventHandler = handler;
+		}
+
 	private:
 		// esc按键关闭窗口回调函数
 		static void GLFW_KeyCallBack(GLFWwindow* window, int key, int scancode, int action, int mods);
 		
-		// 帧缓冲大小变化的回调函数(C风格静态函数)，即窗口大小变化时自动调用来更新尺寸
-		static void GLFW_FramebufferResizeCallBack(GLFWwindow* window, int width, int height);  // 这是GLFW回调函数入口，用于在窗口大小变化时同步更新内部状态。
+		//// 帧缓冲大小变化的回调函数(C风格静态函数)，即窗口大小变化时自动调用来更新尺寸
+		//static void GLFW_FramebufferResizeCallBack(GLFWwindow* window, int width, int height);  // 这是GLFW回调函数入口，用于在窗口大小变化时同步更新内部状态
+		
 		// 内部初始化窗口的接口，用于构造中调用
 		void initWindow();  // 把GLFW窗口创建与初始化流程封装在这里，构造函数只需调用它即可。
 
@@ -50,6 +57,9 @@ namespace czx {
 
 		// 管理窗口对象与窗口名称
 		std::string m_windowName;  // 保存窗口标题字符串，创建窗口时会用它作为显示名称。
-		GLFWwindow* m_window;  // 保存GLFW窗口句柄，后续所有窗口操作都基于这个指针。
+		GLFWwindow* m_window;  // 保存GLFW窗口句柄，后续所有窗口操作都基于这个指针
+
+		// 存储外部传入的键盘按键事件处理器，交由按键回调处理
+		std::function<void(int, int, int, int)> m_keyEventHandler;
 	};
 }	// namespace czx

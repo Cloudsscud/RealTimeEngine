@@ -461,10 +461,17 @@ namespace czx {
         deviceFeatures.geometryShader = VK_TRUE;    // 几何着色器
         deviceFeatures.tessellationShader = VK_TRUE;    // 细分着色器
 
+        // 启用动态渲染
+        VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeature = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR,
+            .pNext = nullptr,
+            .dynamicRendering = VK_TRUE
+        };
+
         // 物理设备创建信息
         VkDeviceCreateInfo deviceCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-            .pNext = nullptr,
+            .pNext = &dynamicRenderingFeature,
             .flags = 0,
             .queueCreateInfoCount = 1,  // 使用的队列族
             .pQueueCreateInfos = &qInfo,

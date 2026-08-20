@@ -14,15 +14,47 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
+// imgui
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include <imgui.h>
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_vulkan.h>
+
 //std
 #include <chrono>
 #include <stdexcept>
 #include <array>
+#include <functional>
 
 namespace czx {
 
 	FirstAPP::FirstAPP() {
 		loadGameObjects();
+
+		m_imguiRenderer = std::make_unique<CzxImGuiRenderer>(
+			m_device,
+			m_window,
+			m_renderer.getSwapChainColorFormat(),
+			m_renderer.getSwapChainDepthFormat(),
+			m_renderer.getSwapChainImageCount()
+		);
+
+		// 处理单击的按键事件切换
+		m_window.setKeyEventHandler([this](int key, int scancode, int action, int mods) {
+			// 注意：这里最好用 action == GLFW_PRESS（按下瞬间）或 GLFW_RELEASE（释放瞬间）
+			// 避免按住时重复触发重置、切换等一次性动作
+			if (action == GLFW_PRESS) {
+				switch (key) {
+				case GLFW_KEY_ESCAPE:	// 关闭窗口
+					glfwSetWindowShouldClose(m_window.getGLFWwindow(), GLFW_TRUE);
+					break;
+
+				case GLFW_KEY_F1: // 切换 ImGui 显示
+					m_imguiRenderer->setEnabled(!m_imguiRenderer->isEnabled());
+					break;
+				}
+			}
+			});
 	}
 
 	// 默认析构函数保持空实现，资源由成员对象在其自身生命周期中释放。
@@ -30,8 +62,7 @@ namespace czx {
 
 	// 主循环会持续处理窗口事件，并在每一帧中提交渲染命令。
 	void FirstAPP::run() {
-
-		SimpleRenderSystem simpleRenderSystem{ m_device, m_renderer.getSwapChainRenderPass() };
+		SimpleRenderSystem simpleRenderSystem{ m_device, m_renderer.getSwapChainColorFormat(), m_renderer.getSwapChainDepthFormat()};
         CzxCamera camera{};
 
         auto viewObject = CzxGameObject::createGameObject();    // 仅用于观测，无实体
@@ -64,9 +95,31 @@ namespace czx {
 				};
 
 				// render
-				m_renderer.beginSwapChainRenderPass(commandBuffer);
+				m_renderer.beginRendering(commandBuffer);
+
 				simpleRenderSystem.renderGameObjects(frameInfo, m_gameObjects);
-				m_renderer.endSwapChainRenderPass(commandBuffer);
+
+
+				m_imguiRenderer->render(commandBuffer, [&]() {
+					SimpleRenderSystem::Settings& settings = simpleRenderSystem.getSettings();
+
+					// 这里编写所有 ImGui 界面代码
+					ImGui::Begin("Debug Panel");
+					ImGui::Text("FPS: %.1f", 1.0f / frameInfo.frameTime);
+					// 调整移速
+					if (ImGui::SliderFloat("Camera Move Speed", &cameraController.moveSpeed, 0.5f, 5.0f)) {
+						// 值已更新
+					}
+					ImGui::DragFloat3("Light Dir", &settings.lightDirection[0], 0.1f, -1.0f, 1.0f);
+					ImGui::End();
+
+					ImGui::Begin("Model Control");
+					ImGui::Checkbox("Enable Rotation", &settings.enableRotation);
+					ImGui::SliderFloat("Rotation Speed", &settings.rotationSpeed, 0.0f, 2.0f);
+					ImGui::End();
+					});
+
+				m_renderer.endRendering(commandBuffer);
 				m_renderer.endFrame();
 			}
 		}

@@ -19,21 +19,10 @@ namespace czx {
         init();  // 调用统一初始化流程，把交换链、视图、渲染通道和同步对象一次性创建好。
     }
 
-    // 重建构造函数会基于旧交换链创建新的交换链，适用于窗口尺寸变化时的平滑替换。
-    CzxSwapChain::CzxSwapChain(CzxDevice& deviceRef, VkExtent2D extent, std::shared_ptr<CzxSwapChain> previous)  // 通过旧交换链对象重建新交换链，适配窗口重建场景。
-        : m_device{ deviceRef }, m_swapChainExtent{ extent }, m_oldSwapChain{previous} {  // 保存新尺寸和旧交换链句柄，后续创建时可继承旧资源状态。
-        init();  // 先完成新交换链的创建流程。
-
-        // 清理旧交换链直到不再使用
-        m_oldSwapChain = nullptr;  // 旧交换链在新交换链建立后就不再需要，释放引用，避免额外持有。
-    }
-
     // 初始化函数按顺序创建交换链、图像视图、渲染通道、深度资源和同步对象。
     void CzxSwapChain::init() {  // 这是统一的初始化入口，把交换链链路的所有依赖资源一次性准备好。
         createSwapChain();  // 初始化底层交换链对象，确定图像格式、尺寸和呈现模式。
-        createRenderPass();  // 定义渲染过程中颜色附件和深度附件的布局与加载/保存规则。
         createDepthResources();  // 为深度测试准备对应的深度图像和视图。
-        createFramebuffers();  // 把颜色附件和深度附件绑定到帧缓冲中，供渲染通道使用。
         createSyncObjects();  // 创建信号量和围栏，用于帧间同步和图像可用状态控制。
     }
 
@@ -53,16 +42,6 @@ namespace czx {
             m_swapChain = nullptr;
             printf("SwapChain destroyed\n");
         }
-
-        for (auto framebuffer : m_swapChainFramebuffers) {
-            // 遍历所有帧缓冲，逐个销毁
-            vkDestroyFramebuffer(m_device.device(), framebuffer, nullptr);
-        }
-        printf("Framebuffers destroyed\n");
-
-
-        vkDestroyRenderPass(m_device.device(), m_renderPass, nullptr);
-        printf("Render pass destroyed\n");
 
         // cleanup synchronization objects
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {  // 遍历每一帧的同步对象，依次释放。
@@ -221,122 +200,6 @@ namespace czx {
 
             m_depthTextures[i].m_imageView = m_device.createImageView(m_depthTextures[i].m_image, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
         }
-    }
-
-    // 渲染通道，描述帧缓冲的逻辑结构
-    void CzxSwapChain::createRenderPass() {
-
-        // 颜色附件使用交换链的图像格式
-        VkAttachmentDescription colorAttachment = {
-            .flags = 0,
-            .format = getSwapChainImageFormat(),
-            .samples = VK_SAMPLE_COUNT_1_BIT,   // 仅单次采样，也即禁用超采样
-            // 运行中潜在的优化
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,  // 首个加载该附件的子通道加载数据方式：load/clear清空/dont care
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,    // 最后一个使用该附件的子通道末尾存储数据：store/dont care
-            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,   // 模板未使用，不关注
-            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // 渲染通道开始时的布局：未定义
-            .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR  // 渲染通道结束时附件将转换为的布局：单subpass渲染后直接转换为present源数据
-        };
-
-        // 深度附件依赖于所选设备的深度格式
-        VkAttachmentDescription depthAttachment{
-            .flags = 0,
-            .format = m_device.physicalDevice().Selected().m_depthFormat,
-            .samples = VK_SAMPLE_COUNT_1_BIT,
-             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,// 每次渲染前先清空深度附件内容
-             .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,   // 深度附件不需要存储，后续不再使用
-             .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,// 模板缓冲不需要加载操作
-             .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE, // 模板缓冲不需要存储
-             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,// 初始布局未定义，渲染前会重新进行布局转换
-             .finalLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL// 结束后布局适合深度附件使用
-        };
-
-        std::vector<VkAttachmentDescription> attachments;
-        attachments.push_back(colorAttachment);
-        attachments.push_back(depthAttachment);
-
-        VkAttachmentReference colorAttachmentRef = {
-            .attachment = 0,    // 附件在数组中的索引
-            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL  // 子通道自己的布局
-        };
-
-        // 创建深度附件引用，说明子通道如何使用该附件
-        VkAttachmentReference depthAttachmentRef{
-            .attachment = 1,    // 第二个附件
-            .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL// 指定子通道访问该附件时使用的布局
-        };
-
-        // 设置子通道描述:定义子通道需要用到的附件
-        VkSubpassDescription subpassDesc = {
-            .flags = 0,
-            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,   // 指定这是图形/计算渲染子通道
-            .inputAttachmentCount = 0,  // 输入附件列表：例如shader中从纹理采样
-            .pInputAttachments = nullptr,
-            .colorAttachmentCount = 1,  // 颜色附件：即输出内容
-            .pColorAttachments = &colorAttachmentRef,
-            .pResolveAttachments = nullptr, // 解析附件
-            .pDepthStencilAttachment = &depthAttachmentRef, // 深度模板附件
-            .preserveAttachmentCount = 0, // 保留附件
-            .pPreserveAttachments = nullptr
-        };
-        // inputAttachments着色器读入附件、resolve~用于多重采样颜色附件的附件、preserve~本subpass不用但必须保留数据的附件
-
-        VkSubpassDependency dependency = {};  // 创建子通道依赖，定义前后子通道之间的访问和阶段同步要求。
-        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;  // 子通道起始依赖
-        dependency.srcAccessMask = 0;  // 外部阶段刚开始时没有访问权限要求。
-        dependency.srcStageMask =
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;  // 说明外部阶段需要在颜色输出和早期深度测试阶段完成。
-        dependency.dstSubpass = 0;  // 指定下一个子通道的索引，此处为本身
-        dependency.dstStageMask =
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;  // 目标子通道在颜色输出和早期深度测试阶段执行。
-        dependency.dstAccessMask =
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;  // 允许目标子通道进行颜色和深度写入。
-
-
-        VkRenderPassCreateInfo renderPassInfo = {
-            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = 0,
-            .attachmentCount =static_cast<uint32_t>(attachments.size()),
-            .pAttachments = attachments.data(), // 使用的附件数据信息(所有资源)
-            .subpassCount = 1,
-            .pSubpasses = &subpassDesc, // 子通道描述信息
-            .dependencyCount = 1,
-            .pDependencies = &dependency    // 子通道间的依赖关系
-        };
-
-        VkResult result = vkCreateRenderPass(m_device.device(), &renderPassInfo, nullptr, &m_renderPass);
-        CHECK_VK_RESULT(result, "create render pass\n");
-
-        printf("render pass created\n");
-    }
-
-    void CzxSwapChain::createFramebuffers() {
-        // 帧缓冲依赖于现有的渲染通道
-        m_swapChainFramebuffers.resize(imageCount());  // 先按交换链图像数量准备帧缓冲容器
-
-        for (size_t i = 0; i < imageCount(); i++) {
-            // 针对每张交换链图像，创建其对应帧缓冲
-            std::vector<VkImageView> attachments = { m_imageViews[i] , m_depthTextures[i].m_imageView};
-        
-            VkFramebufferCreateInfo framebufferInfo = {
-                .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-                .pNext = nullptr,
-                .flags = 0,
-                .renderPass = m_renderPass,
-                .attachmentCount = static_cast<uint32_t>(attachments.size()),
-                .pAttachments = attachments.data(),
-                .width = m_swapChainExtent.width,
-                .height = m_swapChainExtent.height,
-                .layers = 1 // 单层图像
-            };
-
-            VkResult result = vkCreateFramebuffer(m_device.device(),&framebufferInfo,nullptr,&m_swapChainFramebuffers[i]);
-            CHECK_VK_RESULT(result, "create framebuffer\n");
-        }
-        printf("framebuffers created\n");
     }
 
     // 创建信号量和围栏，用于控制图像可用、渲染完成以及帧间同步。

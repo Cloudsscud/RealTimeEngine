@@ -2,6 +2,8 @@
 
 #include "czx_window.h"
 
+#include <vulkan/vulkan.h>
+
 // std
 #include <string>
 #include <vector>
@@ -78,6 +80,7 @@ namespace czx {
         CzxDevice& operator=(CzxDevice&&) = delete;
 
         VkCommandPool getCommandPool() { return m_commandPool; }  // 命令池
+        VkInstance getInstance() const { return m_instance; }  // 命令池
 
         const CzxPhysicalDevices& physicalDevice() const { return m_physicalDevices; }  // 物理设备
         const VkDevice& device() const { return m_device; }  // 逻辑设备
@@ -188,6 +191,7 @@ namespace czx {
         };  // debug时启用的验证层名称
 
         const std::vector<const char*> deviceExtensions = {
+            VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,    // 动态渲染拓展
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,        // 交换链拓展
             VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME    // 着色器绘制参数拓展
         };  // 需要启用的设备扩展

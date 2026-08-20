@@ -89,6 +89,7 @@ namespace czx {
         void freeDescriptors(std::vector<VkDescriptorSet>& descriptors) const;
         // ÖØÖÃÃèÊö·û³Ø
         void resetPool();
+        VkDescriptorPool getDescriptorPool() const{ return m_descriptorPool;}
 
     private:
         CzxDevice& m_device;

@@ -21,7 +21,7 @@ namespace czx {
 	};
 
 	// 构造函数会先创建管线布局，再根据当前渲染通道创建具体的图形管线。
-	SimpleRenderSystem::SimpleRenderSystem(CzxDevice& device, VkRenderPass renderPass)
+	SimpleRenderSystem::SimpleRenderSystem(CzxDevice& device, VkFormat colorFormat, VkFormat depthFormat)
 		:m_device{device}
 	{
 
@@ -29,7 +29,7 @@ namespace czx {
 		createDescriptorPools();
 		allocateGlobalDescriptorSets();
 		createPipelineLayout();
-		createPipeline(renderPass);
+		createPipeline(colorFormat, depthFormat);
 	}
 
 	// 析构函数释放管线布局资源，避免内存泄漏。
@@ -123,6 +123,7 @@ namespace czx {
 
 		GlobalUbo ubo{};
 		ubo.projectionView = camera.getProjection() * camera.getView();
+		ubo.directionToLight = glm::normalize(m_settings.lightDirection);	// imgui调整
 
 		m_uboBuffers[frameIndex]->writeToBuffer(&ubo);
 		// 若内存非 coherent，需 flush，但这里使用 coherent 内存，可省略
@@ -156,13 +157,12 @@ namespace czx {
 	}
 
 	// 使用当前渲染通道创建图形管线，后续绘制会使用这条管线。
-	void SimpleRenderSystem::createPipeline(VkRenderPass renderPass) {
+	void SimpleRenderSystem::createPipeline(VkFormat colorFormat, VkFormat depthFormat) {
 		assert(m_pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout");
 
 		PipelineConfigInfo pipelineConfig{};
-		CzxPipeline::defaultPipelineConfigInfo(pipelineConfig);
+		CzxPipeline::defaultPipelineConfigInfo(pipelineConfig, colorFormat, depthFormat);
 		pipelineConfig.pipelineLayout = m_pipelineLayout;
-		pipelineConfig.renderPass = renderPass;
 		m_pipeline = std::make_unique<CzxPipeline>(m_device, "shaders/simple_shader.vert.spv", "shaders/simple_shader.frag.spv", pipelineConfig);
 	}
 
@@ -207,10 +207,12 @@ namespace czx {
 
 			// 推送常量：模型矩阵和法线矩阵
 			SimplePushConstantData push{};
-			static float foo = 0.0f;
-			push.modelMatrix = glm::rotate(obj.m_transform.mat4(), glm::radians(foo), glm::normalize(glm::vec3(0.0f, 1.f, 0.0f)));
-			push.normalMatrix = glm::rotate(glm::mat4{obj.m_transform.normalMatrix()}, glm::radians(foo), glm::normalize(glm::vec3(0.0f, 1.f, 0.0f)));
-			foo += 0.01f;
+			static float currentAngle = 0.0f;
+			if (m_settings.enableRotation) {
+				currentAngle += m_settings.rotationSpeed * frameInfo.frameTime; // 使用帧时间实现匀速
+			}
+			push.modelMatrix = glm::rotate(obj.m_transform.mat4(), glm::radians(currentAngle), glm::normalize(glm::vec3(0.0f, 1.f, 0.0f)));
+			push.normalMatrix = glm::rotate(glm::mat4{obj.m_transform.normalMatrix()}, glm::radians(currentAngle), glm::normalize(glm::vec3(0.0f, 1.f, 0.0f)));
 
 			vkCmdPushConstants(
 				frameInfo.commandBuffer,

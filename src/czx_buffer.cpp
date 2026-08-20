@@ -1,11 +1,4 @@
-﻿/*
- * Encapsulates a vulkan buffer
- *
- * Initially based off VulkanBuffer by Sascha Willems -
- * https://github.com/SaschaWillems/Vulkan/blob/master/base/VulkanBuffer.h
- */
-
-#include "czx_buffer.h"
+﻿#include "czx_buffer.h"
 
  // std
 #include <cassert>
@@ -13,10 +6,12 @@
 
 namespace czx {
 
-    // 将实例大小转换为最小对齐偏移的整数倍
     VkDeviceSize CzxBuffer::getAlignment(VkDeviceSize instanceSize, VkDeviceSize minOffsetAlignment) {
+        assert((minOffsetAlignment & (minOffsetAlignment - 1)) == 0 &&
+            "minOffsetAlignment 必须是 2 的幂");
+
         if (minOffsetAlignment > 0) {
-            // = [instanceSize / minOffsetAlignment] * minOffsetAlignment
+            // = [instanceSize / minOffsetAlignment] * minOffsetAlignment ((17+15)&~15 = 32)
             return (instanceSize + minOffsetAlignment - 1) & ~(minOffsetAlignment - 1);
         }
         return instanceSize;
@@ -45,25 +40,12 @@ namespace czx {
         vkFreeMemory(m_device.device(), m_bufferMemory, nullptr);
     }
 
-    /**
-     * Map a memory range of this buffer. If successful, mapped points to the specified buffer range.
-     *
-     * @param size (Optional) Size of the memory range to map. Pass VK_WHOLE_SIZE to map the complete
-     * buffer range.
-     * @param offset (Optional) Byte offset from beginning
-     *
-     * @return VkResult of the buffer mapping call
-     */
     VkResult CzxBuffer::map(VkDeviceSize size, VkDeviceSize offset) {
         assert(m_buffer && m_bufferMemory && "Called map on buffer before create");
         return vkMapMemory(m_device.device(), m_bufferMemory, offset, size, 0, &m_mapped);
     }
 
-    /**
-     * 释放CPU端数据
-     *
-     * @note Does not return a result as vkUnmapMemory can't fail
-     */
+
     void CzxBuffer::unmap() {
         if (m_mapped) {
             vkUnmapMemory(m_device.device(), m_bufferMemory);
@@ -71,15 +53,6 @@ namespace czx {
         }
     }
 
-    /**
-     * Copies the specified data to the mapped buffer. Default value writes whole buffer range
-     *
-     * @param data Pointer to the data to copy
-     * @param size (Optional) Size of the data to copy. Pass VK_WHOLE_SIZE to flush the complete buffer
-     * range.
-     * @param offset (Optional) Byte offset from beginning of mapped region
-     *
-     */
     void CzxBuffer::writeToBuffer(void* data, VkDeviceSize size, VkDeviceSize offset) {
         assert(m_mapped && "Cannot copy to unmapped buffer");
 
@@ -93,54 +66,26 @@ namespace czx {
         }
     }
 
-    /**
-     * Flush a memory range of the buffer to make it visible to the device
-     *
-     * @note Only required for non-coherent memory
-     *
-     * @param size (Optional) Size of the memory range to flush. Pass VK_WHOLE_SIZE to flush the
-     * complete buffer range.
-     * @param offset (Optional) Byte offset from beginning
-     *
-     * @return VkResult of the flush call
-     */
     VkResult CzxBuffer::flush(VkDeviceSize size, VkDeviceSize offset) {
-        VkMappedMemoryRange mappedRange = {};
-        mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-        mappedRange.memory = m_bufferMemory;
-        mappedRange.offset = offset;
-        mappedRange.size = size;
+        VkMappedMemoryRange mappedRange = {
+            .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+            .memory = m_bufferMemory,
+            .offset = offset,
+            .size = size
+        };
         return vkFlushMappedMemoryRanges(m_device.device(), 1, &mappedRange);
     }
 
-    /**
-     * Invalidate a memory range of the buffer to make it visible to the host
-     *
-     * @note Only required for non-coherent memory
-     *
-     * @param size (Optional) Size of the memory range to invalidate. Pass VK_WHOLE_SIZE to invalidate
-     * the complete buffer range.
-     * @param offset (Optional) Byte offset from beginning
-     *
-     * @return VkResult of the invalidate call
-     */
     VkResult CzxBuffer::invalidate(VkDeviceSize size, VkDeviceSize offset) {
-        VkMappedMemoryRange mappedRange = {};
-        mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-        mappedRange.memory = m_bufferMemory;
-        mappedRange.offset = offset;
-        mappedRange.size = size;
+        VkMappedMemoryRange mappedRange = {
+            .sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+            .memory = m_bufferMemory,
+            .offset = offset,
+            .size = size
+        };
         return vkInvalidateMappedMemoryRanges(m_device.device(), 1, &mappedRange);
     }
 
-    /**
-     * Create a buffer info descriptor
-     *
-     * @param size (Optional) Size of the memory range of the descriptor
-     * @param offset (Optional) Byte offset from beginning
-     *
-     * @return VkDescriptorBufferInfo of specified offset and range
-     */
     VkDescriptorBufferInfo CzxBuffer::descriptorInfo(VkDeviceSize size, VkDeviceSize offset) {
         return VkDescriptorBufferInfo{
             m_buffer,
@@ -149,45 +94,16 @@ namespace czx {
         };
     }
 
-    /**
-     * Copies "instanceSize" bytes of data to the mapped buffer at an offset of index * alignmentSize
-     *
-     * @param data Pointer to the data to copy
-     * @param index Used in offset calculation
-     *
-     */
     void CzxBuffer::writeToIndex(void* data, int index) {
         writeToBuffer(data, m_instanceSize, index * m_alignmentSize);
     }
 
-    /**
-     *  Flush the memory range at index * alignmentSize of the buffer to make it visible to the device
-     *
-     * @param index Used in offset calculation
-     *
-     */
     VkResult CzxBuffer::flushIndex(int index) { return flush(m_alignmentSize, index * m_alignmentSize); }
 
-    /**
-     * Create a buffer info descriptor
-     *
-     * @param index Specifies the region given by index * alignmentSize
-     *
-     * @return VkDescriptorBufferInfo for instance at index
-     */
     VkDescriptorBufferInfo CzxBuffer::descriptorInfoForIndex(int index) {
         return descriptorInfo(m_alignmentSize, index * m_alignmentSize);
     }
 
-    /**
-     * Invalidate a memory range of the buffer to make it visible to the host
-     *
-     * @note Only required for non-coherent memory
-     *
-     * @param index Specifies the region to invalidate: index * alignmentSize
-     *
-     * @return VkResult of the invalidate call
-     */
     VkResult CzxBuffer::invalidateIndex(int index) {
         return invalidate(m_alignmentSize, index * m_alignmentSize);
     }

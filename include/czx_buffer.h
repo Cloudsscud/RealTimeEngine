@@ -28,14 +28,42 @@ namespace czx {
         CzxBuffer(const CzxBuffer&) = delete;
         CzxBuffer& operator=(const CzxBuffer&) = delete;
 
+        /**
+         * @brief 将缓冲区的指定内存范围映射到主机虚拟地址空间
+         * @param size default=VK_WHOLE_SIZE 表示映射整个缓冲区 要映射的内存大小
+         * @param offset default=0 从缓冲区起始位置的字节偏移
+         * @return VkResult 映射操作的结果码
+         * @note 映射成功后，可通过 m_mapped 指针访问缓冲区内容
+         */
         VkResult map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
+
+        /**
+         * @brief 解除缓冲区的主机内存映射
+         */
         void unmap();
 
+        /**
+           * @brief 将主机数据拷贝到已映射的缓冲区中
+           * @param data 指向源数据的指针
+           * @param size default=VK_WHOLE_SIZE 表示拷贝整个缓冲区 要拷贝的字节数
+           * @param offset default=0 从缓冲区起始位置的字节偏移
+           * @note 调用前必须已通过 map() 映射缓冲区
+           * @warning 如果 offset + size 超出缓冲区范围，将导致未定义行为
+           */
         void writeToBuffer(void* data, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
         VkResult flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
         VkDescriptorBufferInfo descriptorInfo(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
+
+        /**
+         * @brief 使缓冲区内存范围失效，让主机读取设备写入的最新数据
+         * @param size default=VK_WHOLE_SIZE 要失效的内存大小
+         * @param offset default=0 从缓冲区起始位置的字节偏移
+         * @return VkResult 失效操作的结果码
+         * @note 仅对非一致性内存（non-coherent memory）需要此操作
+         */
         VkResult invalidate(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 
+        // 按索引写入单个实例数据
         void writeToIndex(void* data, int index);
         VkResult flushIndex(int index);
         VkDescriptorBufferInfo descriptorInfoForIndex(int index);
@@ -51,6 +79,12 @@ namespace czx {
         VkDeviceSize getBufferSize() const { return m_bufferSize; }
 
     private:
+        /**
+         * @brief 计算满足最小对齐偏移要求的实例对齐大小
+         * @param instanceSize 单个实例的原始字节大小
+         * @param minOffsetAlignment 最小对齐偏移字节数（必须是2的幂）
+         * @return 对齐后的实例大小（向上取整到 minOffsetAlignment 的整数倍）
+         */
         static VkDeviceSize getAlignment(VkDeviceSize instanceSize, VkDeviceSize minOffsetAlignment);
 
         CzxDevice& m_device;

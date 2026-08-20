@@ -37,9 +37,9 @@ namespace czx {
 		m_window = glfwCreateWindow(m_width, m_height, m_windowName.c_str(), nullptr, nullptr);  // 根据宽高和标题创建一个新的GLFW窗口。
 
 
-		glfwSetWindowUserPointer(m_window, this);  // 把当前CzxWindow对象指针绑定到窗口中，供回调函数使用。
+		glfwSetWindowUserPointer(m_window, this);  // 把当前CzxWindow对象指针绑定到窗口中，供回调函数使用
 		glfwSetKeyCallback(m_window, GLFW_KeyCallBack);
-		glfwSetFramebufferSizeCallback(m_window, GLFW_FramebufferResizeCallBack);  // 注册尺寸变化回调，让窗口大小改变时自动更新内部状态。
+		// glfwSetFramebufferSizeCallback(m_window, GLFW_FramebufferResizeCallBack);  // 注册尺寸变化回调，让窗口大小改变时自动更新内部状态
 	}
 
 	// 该函数把当前窗口连接到Vulkan，生成可用于呈现的表面对象。
@@ -48,22 +48,25 @@ namespace czx {
 		CHECK_VK_RESULT(result, "create window surface");
 		printf("GLFW window surface created\n");
 	}
-	
-	// 按esc关闭窗口
+
+	// 处理外部提供的按键事件
 	void CzxWindow::GLFW_KeyCallBack(GLFWwindow* window, int key, int scancode, int action, int mods) {
-		if ((key == GLFW_KEY_ESCAPE) && (action == GLFW_PRESS)) {
-			glfwSetWindowShouldClose(window, GLFW_TRUE);
+		auto czxWindow = reinterpret_cast<CzxWindow*>(glfwGetWindowUserPointer(window));
+		if (!czxWindow) return;
+
+		// 调用外部设置的事件处理器
+		if (czxWindow->m_keyEventHandler) {
+			czxWindow->m_keyEventHandler(key, scancode, action, mods);
 		}
 	}
 
-
-	// 这是GLFW在窗口帧缓冲尺寸变化时自动触发的回调函数，用于同步当前窗口尺寸状态。
-	void CzxWindow::GLFW_FramebufferResizeCallBack(GLFWwindow* window, int width, int height) {
-		auto czxWindow = reinterpret_cast<CzxWindow*>(window);  // 从GLFW窗口句柄反向转换为当前窗口对象实例，便于更新成员变量
-		czxWindow->m_framebufferResized = true;  // 标记窗口尺寸已经发生变化，供上层逻辑判断是否需要重建交换链
-		czxWindow->m_width = width;  // 更新保存的窗口宽度，保持与实际帧缓冲尺寸一致
-		czxWindow->m_height = height;  // 更新保存的窗口高度，保持与实际帧缓冲尺寸一致
-	}
+	//// 这是GLFW在窗口帧缓冲尺寸变化时自动触发的回调函数，用于同步当前窗口尺寸状态。
+	//void CzxWindow::GLFW_FramebufferResizeCallBack(GLFWwindow* window, int width, int height) {
+	//	auto czxWindow = reinterpret_cast<CzxWindow*>(window);  // 从GLFW窗口句柄反向转换为当前窗口对象实例，便于更新成员变量
+	//	czxWindow->m_framebufferResized = true;  // 标记窗口尺寸已经发生变化，供上层逻辑判断是否需要重建交换链
+	//	czxWindow->m_width = width;  // 更新保存的窗口宽度，保持与实际帧缓冲尺寸一致
+	//	czxWindow->m_height = height;  // 更新保存的窗口高度，保持与实际帧缓冲尺寸一致
+	//}
 
 
 }	// namespace czx

@@ -4,6 +4,7 @@
 #include <czx_device.h>
 #include <czx_game_object.h>
 #include <czx_renderer.h>
+#include <czx_imgui_renderer.h>
 
 // std
 #include <memory>
@@ -28,7 +29,8 @@ namespace czx {
 
 		CzxWindow m_window{WIDTH, HEIGHT, "Hello Vulkan!"};  // 创建主窗口，作为整个应用的显示入口。
 		CzxDevice m_device{m_window};  // 根据窗口创建Vulkan设备和相关资源。
-		CzxRenderer m_renderer{ m_window, m_device };  // 使用设备和窗口管理渲染帧流程。
+		CzxRenderer m_renderer{ m_window, m_device };  // 使用设备和窗口管理渲染帧流程
+		std::unique_ptr<CzxImGuiRenderer> m_imguiRenderer;
 
 		std::vector<CzxGameObject> m_gameObjects;  // 保存当前场景中的所有可渲染对象。
 	};
