@@ -15,7 +15,7 @@ namespace czx {
 	public:
 
 		CzxRenderer(CzxWindow& window, CzxDevice& device);  // 根据窗口和设备创建渲染器并初始化交换链与命令缓冲区。
-		~CzxRenderer();  // 释放渲染器拥有的命令缓冲区和交换链资源。
+		~CzxRenderer();
 
 		CzxRenderer(const CzxRenderer&) = delete;  // 禁止拷贝，避免两个渲染器同时管理同一帧资源。
 		CzxRenderer& operator=(const CzxRenderer&) = delete;  // 禁止赋值，防止重复释放命令缓冲区和交换链句柄。
@@ -24,7 +24,7 @@ namespace czx {
 		float getAspectRatio() const { return m_swapChain->extentAspectRatio(); }
 		bool isFrameInProgress() const { return m_isFrameStarted; }  // 判断当前是否正在记录一帧命令。
 
-		VkCommandBuffer getCurrentCommandBuffer() const {  // 获取当前帧正在使用的命令缓冲区。
+		VkCommandBuffer getCurrentCommandBuffer() const {  // 获取当前帧正在使用的命令缓冲区
 			assert(m_isFrameStarted && "Cannot get command buffer when frame not in progress");
 			return m_commandBuffers[m_currentFrameIndex];
 		}
@@ -39,16 +39,20 @@ namespace czx {
 		void beginSwapChainRenderPass(VkCommandBuffer commandbuffer);  // 开始当前交换链对应的渲染通道。
 		void endSwapChainRenderPass(VkCommandBuffer commandbuffer);  // 结束当前渲染通道。
 
-
 	private:
-		void createCommandBuffers();  // 创建一组命令缓冲区，供多帧渲染复用。
-		void freeCommandBuffers();  // 释放命令缓冲区资源。
-		void recreateSwapChain();  // 在窗口尺寸变化或交换链失效时重建交换链。
+		void createCommandBuffers();
+		void freeCommandBuffers();
+		void recreateSwapChain();  // 在窗口尺寸变化或交换链失效时重建交换链
 
-		CzxWindow& m_window;  // 对窗口对象的引用，用于获取窗口尺寸和重建状态。
-		CzxDevice& m_device;  // 对设备对象的引用，提供逻辑设备和命令池访问能力。
+		void beginCommandBuffer(VkCommandBuffer commandBuffer, VkCommandBufferUsageFlags usageFlags);
+		void endCommandBuffer(VkCommandBuffer commandBuffer);
+
+		CzxWindow& m_window;
+		CzxDevice& m_device;
 		std::unique_ptr<CzxSwapChain> m_swapChain;  // 当前使用的交换链对象。
-		std::vector<VkCommandBuffer> m_commandBuffers;  // 每帧对应的命令缓冲区集合。
+		std::vector<VkCommandBuffer> m_commandBuffers;  // 每个交换链图像对应的命令缓冲区
+
+		int m_imageCount = 0;
 
 		uint32_t m_currentImageIndex{};  // 当前帧正在渲染的交换链图像索引。
 		int m_currentFrameIndex{};  // 当前使用的帧缓冲索引。

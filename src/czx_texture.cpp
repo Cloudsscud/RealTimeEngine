@@ -4,6 +4,8 @@
 // libs
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 
 // std
 #include <stdexcept>
@@ -17,9 +19,16 @@ namespace czx {
         const std::string& filePath,
         VkFormat format)
         : m_device(device) {
-        createImage(filePath, format);
+        createImageFromFile(filePath, format);
         createImageView(format);
         createSampler();
+        printf("Texture from %s created\n", filePath.c_str());
+    }
+
+    CzxTexture::CzxTexture(
+        CzxDevice& device,
+        VkFormat format)
+        : m_device(device) {
     }
 
     CzxTexture::~CzxTexture() {
@@ -37,6 +46,34 @@ namespace czx {
         }
     }
 
+    // 当前格式的每像素字节数
+    int CzxTexture::getBytesPerTexFormat(VkFormat format) {
+        switch (format) {
+        case VK_FORMAT_R8_SINT:
+        case VK_FORMAT_R8_UNORM:
+            return 1;
+        case VK_FORMAT_R16_SFLOAT:
+            return 2;
+        case VK_FORMAT_R16G16_SFLOAT:
+            return 4;
+        case VK_FORMAT_R16G16_SNORM:
+            return 4;
+        case VK_FORMAT_R8G8B8A8_UNORM:
+            return 4;
+        case VK_FORMAT_R8G8B8A8_SRGB:
+            return 4;
+        case VK_FORMAT_B8G8R8A8_UNORM:
+            return 4;
+        case VK_FORMAT_R16G16B16_SFLOAT:
+            return 4 * sizeof(uint16_t);
+        case VK_FORMAT_R32G32B32A32_SFLOAT:
+            return 4 * sizeof(float);
+        default:
+            ERROR("Unknown format %d\n", format);
+        }
+        return 0;
+    }
+
     VkDescriptorImageInfo CzxTexture::getDescriptorInfo() const {
         return VkDescriptorImageInfo{
             m_sampler,
@@ -51,7 +88,7 @@ namespace czx {
         return std::make_unique<CzxTexture>(device, filePath);
     }
 
-    void CzxTexture::createImage(const std::string& filePath, VkFormat format) {
+    void CzxTexture::createImageFromFile(const std::string& filePath, VkFormat format) {
         int texWidth, texHeight, texChannels;
         stbi_uc* pixels = stbi_load(filePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
@@ -59,9 +96,13 @@ namespace czx {
             throw std::runtime_error("Failed to load texture image: " + filePath);
         }
 
+        int BytesPerPixel = getBytesPerTexFormat(format);
         m_width = static_cast<uint32_t>(texWidth);
         m_height = static_cast<uint32_t>(texHeight);
-        VkDeviceSize imageSize = m_width * m_height * 4;
+        VkDeviceSize LayerSize = m_width * m_height * BytesPerPixel;    // 每层大小
+
+        int LayerCount = 1;
+        VkDeviceSize imageSize = LayerSize * LayerCount;
 
         std::cout << "Loaded texture: " << filePath << std::endl;
         std::cout << "  Width: " << m_width << ", Height: " << m_height << std::endl;
@@ -82,33 +123,18 @@ namespace czx {
         // 释放CPU端像素数据
         stbi_image_free(pixels);
 
-        // 创建图像
-        VkImageCreateInfo imageInfo{};
-        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.extent.width = m_width;
-        imageInfo.extent.height = m_height;
-        imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = m_mipLevels;
-        imageInfo.arrayLayers = 1;
-        imageInfo.format = format;
-        imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        m_device.createImageWithInfo(
-            imageInfo,
+        m_device.createImage(
+            m_width,m_height,format,
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             m_image,
             m_imageMemory
         );
 
-        // 转换图像布局并拷贝数据  UNDEFINED -> TRANSFER_DST -> copy -> SHADER_READ_ONLY
-        m_device.transitionImageLayout(m_image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        // 转换图像布局并拷贝数据  UNDEFINED -> TRANSFER_DST_OPTIMAL -> copy -> SHADER_READ_ONLY_OPTIMAL(fragment shader访问)
+        m_device.transitionImageLayout(m_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         m_device.copyBufferToImage(stageBuffer.getBuffer(), m_image, m_width, m_height, 1);
-        m_device.transitionImageLayout(m_image, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        m_device.transitionImageLayout(m_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
     void CzxTexture::createImageView(VkFormat format) {
@@ -116,16 +142,14 @@ namespace czx {
             m_image,
             format,
             VK_IMAGE_ASPECT_COLOR_BIT,
-            m_mipLevels,
-            0,
+            VK_IMAGE_VIEW_TYPE_2D,
             1,
-            0,
-            VK_IMAGE_VIEW_TYPE_2D
+            m_mipLevels
         );
     }
 
     void CzxTexture::createSampler() {
-        m_sampler = m_device.createDefaultSampler();
+        m_sampler = m_device.createTextureSampler();
     }
 
 

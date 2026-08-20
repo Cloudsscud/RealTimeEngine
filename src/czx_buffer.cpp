@@ -13,17 +13,10 @@
 
 namespace czx {
 
-    /**
-     * Returns the minimum instance size required to be compatible with devices minOffsetAlignment
-     *
-     * @param instanceSize The size of an instance
-     * @param minOffsetAlignment The minimum required alignment, in bytes, for the offset member (eg
-     * minUniformBufferOffsetAlignment)
-     *
-     * @return VkResult of the buffer mapping call
-     */
+    // 将实例大小转换为最小对齐偏移的整数倍
     VkDeviceSize CzxBuffer::getAlignment(VkDeviceSize instanceSize, VkDeviceSize minOffsetAlignment) {
         if (minOffsetAlignment > 0) {
+            // = [instanceSize / minOffsetAlignment] * minOffsetAlignment
             return (instanceSize + minOffsetAlignment - 1) & ~(minOffsetAlignment - 1);
         }
         return instanceSize;
@@ -31,19 +24,19 @@ namespace czx {
 
     CzxBuffer::CzxBuffer(
         CzxDevice& device,
-        VkDeviceSize instanceSize,
-        uint32_t instanceCount,
-        VkBufferUsageFlags usageFlags,
-        VkMemoryPropertyFlags memoryPropertyFlags,
+        VkDeviceSize instanceSize, uint32_t instanceCount,
+        VkBufferUsageFlags usage,
+        VkMemoryPropertyFlags memoryProps,
         VkDeviceSize minOffsetAlignment)
         : m_device{ device },
         m_instanceSize{ instanceSize },
         m_instanceCount{ instanceCount },
-        m_usageFlags{ usageFlags },
-        m_memoryPropertyFlags{ memoryPropertyFlags } {
+        m_usage{ usage },
+        m_memoryProps{ memoryProps } {
+
         m_alignmentSize = getAlignment(instanceSize, minOffsetAlignment);
         m_bufferSize = m_alignmentSize * instanceCount;
-        device.createBuffer(m_bufferSize, usageFlags, memoryPropertyFlags, m_buffer, m_bufferMemory);
+        device.createBuffer(m_bufferSize, usage, memoryProps, m_buffer, m_bufferMemory);
     }
 
     CzxBuffer::~CzxBuffer() {
@@ -67,7 +60,7 @@ namespace czx {
     }
 
     /**
-     * Unmap a mapped memory range
+     * 释放CPU端数据
      *
      * @note Does not return a result as vkUnmapMemory can't fail
      */

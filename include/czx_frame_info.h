@@ -11,6 +11,5 @@ namespace czx {
 		float frameTime;
 		VkCommandBuffer commandBuffer;
 		CzxCamera& camera;
-		VkDescriptorSet globalDescriptorSet;
 	};
 }	// namespace czx

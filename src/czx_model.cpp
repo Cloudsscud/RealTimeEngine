@@ -56,7 +56,7 @@ namespace czx {
 		return attributeDescriptions;
 	}
 
-	void CzxModel::Builder::loadModel(const std::string& filePath, const std::string& textureFilePath) {
+	void CzxModel::Builder::loadModel(const std::string& filePath) {
 		// 使用 rapidobj 解析 OBJ 文件
 		rapidobj::Result result = rapidobj::ParseFile(filePath);
 
@@ -145,7 +145,10 @@ namespace czx {
 		// Vertices: 530843
 		// Triangles : 972598
 		// Materials : 1
+	}
 
+	void CzxModel::Builder::loadTexture(const std::string& textureFilePath)
+	{
 		if (!textureFilePath.empty()) {
 			m_textureFilePath = textureFilePath;
 		}
@@ -169,7 +172,8 @@ namespace czx {
 
 	std::unique_ptr<CzxModel> CzxModel::createModelFromFile(CzxDevice& device, const std::string& filePath, const std::string& textureFilePath) {
 		Builder builder{};
-		builder.loadModel(filePath, textureFilePath);
+		builder.loadModel(filePath);
+		builder.loadTexture(textureFilePath);
 		return std::make_unique<CzxModel>(device, builder);
 	}
 
@@ -266,12 +270,14 @@ namespace czx {
 		VkDeviceSize bufferSize = sizeof(vertices[0]) * m_vertexCount;
 		uint32_t vertexSize = sizeof(vertices[0]);
 
-		// 创建暂存缓冲区,用于拷贝
+		// 创建暂存缓冲区,用于临时在GPU存储并最终拷贝到device local型的缓冲区
 		CzxBuffer stageBuffer{m_device,
 			vertexSize,
 			m_vertexCount,
-			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,	// 内存传输源
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };	// 暂存缓冲区确保host可见，且缓存一致性确保host主机更新时，将数据刷新到设备端
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,			// 作为内存传输源使用
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT			// 暂存缓冲区确保host可见(HOST_VISIBLE)，从而进行映射map
+				| VK_MEMORY_PROPERTY_HOST_COHERENT_BIT	// 且主机一致性(HOST_COHERENT)确保host主机更新时，直接将数据同步到设备端，否则需flush
+		};
 
 		//void* data;
 		//vkMapMemory(m_device.device(), stageBufferMemory, 0, bufferSize, 0, &data);	// 将host数据(CPU)映射到设备端暂存缓冲区内存的位置
@@ -281,6 +287,7 @@ namespace czx {
 		stageBuffer.writeToBuffer((void*)vertices.data());
 		// buffer析构时自动unmap并销毁资源
 
+		// GPU真正使用的缓冲区
 		m_vertexBuffer = std::make_unique<CzxBuffer>(
 			m_device,
 			vertexSize,
@@ -313,5 +320,6 @@ namespace czx {
 		}
 	}
 
-	
+
+
 }	// namespace czx

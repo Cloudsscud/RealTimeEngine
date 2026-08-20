@@ -42,7 +42,8 @@ namespace czx {
 			std::vector<uint32_t> indices{}; // 索引
 			std::string m_textureFilePath = "";
 
-			void loadModel(const std::string& filePath, const std::string& textureFilePath);
+			void loadModel(const std::string& filePath);
+			void loadTexture(const std::string& textureFilePath);
 		};
 
 		CzxModel(CzxDevice& device, const CzxModel::Builder& builder);  // 根据顶点和索引数据在GPU上创建对应的顶点、索引缓冲区。
@@ -58,16 +59,16 @@ namespace czx {
 		std::shared_ptr<CzxTexture> getTexture() const { return m_texture; }
 		bool hasTexture() const { return m_texture != nullptr; }
 
-		void bind(VkCommandBuffer commandBuffer);  // 将顶点缓冲绑定到当前命令缓冲区，准备绘制。
-		void draw(VkCommandBuffer commandBuffer);  // 发出一次绘制调用，使用当前绑定的顶点数据。
+		void bind(VkCommandBuffer commandBuffer);  // 将缓冲数据绑定到当前命令缓冲区，准备绘制
+		void draw(VkCommandBuffer commandBuffer);  // 发出一次绘制调用，使用当前绑定的模型数据
 
 	private:
-		void createVertexBuffer(const std::vector<Vertex>& vertices);  // 创建并填充顶点缓冲区。
-		void createIndexBuffer(const std::vector<uint32_t>& indices);  // 创建并填充索引缓冲区。
+		void createVertexBuffer(const std::vector<Vertex>& vertices);  // 创建并填充顶点缓冲区
+		void createIndexBuffer(const std::vector<uint32_t>& indices);  // 创建并填充索引缓冲区
 
-		CzxDevice& m_device;  // 保存设备引用，便于访问逻辑设备和内存分配接口。
+		CzxDevice& m_device;
 		std::unique_ptr<CzxBuffer> m_vertexBuffer;	// 抽象的顶点缓冲区
-		uint32_t m_vertexCount;  // 顶点数量，用于绘制调用时指定顶点个数。
+		uint32_t m_vertexCount;  // 顶点数量
 
 		bool m_hasIndexBuffer = false;	// 用于判断是否用到索引缓冲
 		std::unique_ptr<CzxBuffer> m_indexBuffer;	// 抽象的索引缓冲区

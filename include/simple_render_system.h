@@ -1,34 +1,71 @@
 ﻿#pragma once
 
+#include <czx_utils.h>
 #include <czx_device.h>
 #include <czx_pipeline.h>
 #include <czx_game_object.h>
 #include <czx_camera.h>
 #include <czx_frame_info.h>
+#include <czx_descriptor.h>
+#include <czx_buffer.h>
+#include <czx_swap_chain.h>
+#include <unordered_map>
 
 // std
 #include <memory>
 #include <vector>
 
 namespace czx {
-	// 负责把游戏对象渲染到当前渲染通道中，封装管线绑定、推送常量和绘制调用流程。
+	// 全局 UBO 数据结构，与着色器匹配
+	struct GlobalUbo {
+		alignas(16) glm::mat4 projectionView{ 1.f };
+		alignas(16) glm::vec3 directionToLight = glm::normalize(glm::vec3(3.0, -3.0, 2.0));
+	};
+
 	class SimpleRenderSystem {
 	public:
 
-		SimpleRenderSystem(CzxDevice& device, VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts);  // 根据设备和渲染通道创建渲染系统所需管线资源。
-		~SimpleRenderSystem();  // 销毁管线布局和相关渲染资源。
+		SimpleRenderSystem(CzxDevice& device, VkRenderPass renderPass);
+		~SimpleRenderSystem();
 
-		SimpleRenderSystem(const SimpleRenderSystem&) = delete;  // 禁止拷贝，避免多个渲染系统共享同一管线资源。
-		SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;  // 禁止赋值，防止重复释放资源。
+		SimpleRenderSystem(const SimpleRenderSystem&) = delete;  // 禁止拷贝
+		SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;  // 禁止赋值
 
-		void renderGameObjects(FrameInfo& frameInfo, std::vector<CzxGameObject>& gameObjects);  // 遍历场景中的对象并执行绘制调用。
+		// 每帧渲染调用，传入帧信息和游戏对象列表
+		void renderGameObjects(FrameInfo& frameInfo, std::vector<CzxGameObject>& gameObjects);
 	private:
-		void createPipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts);  // 创建管线布局，定义着色器可访问的推送常量和资源绑定。
-		void createPipeline(VkRenderPass renderPass);  // 使用当前渲染通道创建图形管线。
+		// 描述符相关创建函数
+		void createDescriptorSetLayouts();
+		void createDescriptorPools();
+		void allocateGlobalDescriptorSets();
+		void allocateModelDescriptorSet(const CzxGameObject& obj);
+		void updateUbo(int frameIndex, const CzxCamera& camera);
 
-		CzxDevice& m_device;  // 对设备对象的引用，提供逻辑设备和资源创建能力。
+		// 管线创建
+		void createPipelineLayout();  // 创建管线布局
+		void createPipeline(VkRenderPass renderPass);
 
-		std::unique_ptr<CzxPipeline> m_pipeline;  // 当前使用的图形管线对象。
-		VkPipelineLayout m_pipelineLayout;  // 管线布局句柄，控制着色器资源的绑定方式。
+		CzxDevice& m_device;
+
+		// 描述符布局
+		std::unique_ptr<CzxDescriptorSetLayout> m_globalLayout;
+		std::unique_ptr<CzxDescriptorSetLayout> m_modelLayout;
+
+		// 描述符池
+		std::unique_ptr<CzxDescriptorPool> m_globalPool;
+		std::unique_ptr<CzxDescriptorPool> m_modelPool;
+
+		// 全局描述符集（每飞行帧一个）
+		std::vector<VkDescriptorSet> m_globalDescriptorSets;
+		// UBO 缓冲（每飞行帧一个）
+		std::vector<std::unique_ptr<CzxBuffer>> m_uboBuffers;
+
+		// 模型描述符集映射（对象ID -> 描述符集）
+		std::unordered_map<CzxGameObject::id_t, VkDescriptorSet> m_modelDescriptorSets;
+
+		VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
+		std::unique_ptr<CzxPipeline> m_pipeline;  // 当前使用的图形管线对象
+
+		static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = CzxSwapChain::MAX_FRAMES_IN_FLIGHT;
 	};
 }	// namespace czx

@@ -16,7 +16,12 @@ namespace czx {
         public:
             Builder(CzxDevice& device) : m_device{ device } {}
 
-            // 将所需信息添加到绑定映射中，返回引用方便连续调用
+            /** 为描述符集布局增加描述符集绑定信息
+              * @param binding : 绑定索引 着色器使用的绑定索引
+              * @param descriptorType ：该描述符的资源类型(image/buffer...)
+              * @param stageFlags ：该描述符资源在着色器中的使用阶段(vertex/fragment/...)
+              * @param count ：optional default=1 该描述符资源使用数量，与shader资源数组大小相同
+            */
             Builder& addBinding(
                 uint32_t binding,
                 VkDescriptorType descriptorType,    // 期望的描述符类型(统一缓冲、存储缓冲、图像缓冲等)
@@ -52,17 +57,16 @@ namespace czx {
         public:
             Builder(CzxDevice& czxDevice) : m_device{ czxDevice } {}
 
-            // 允许链式调用
-            Builder& addPoolSize(VkDescriptorType descriptorType, uint32_t count);  // 添加多个描述符
+            Builder& addPoolSize(VkDescriptorType descriptorType, uint32_t count);  // 添加多个同类型描述符
             Builder& setPoolFlags(VkDescriptorPoolCreateFlags flags);   // 设置池对象行为
-            Builder& setMaxSets(uint32_t count);    // 最大可分配描述符个数
+            Builder& setMaxSets(uint32_t count);    // 最大可分配描述符集的个数
             std::unique_ptr<CzxDescriptorPool> build() const;
 
         private:
             CzxDevice& m_device;
-            std::vector<VkDescriptorPoolSize> m_poolSizes{};
-            uint32_t m_maxSets = 1000;
-            VkDescriptorPoolCreateFlags m_poolFlags = 0;
+            std::vector<VkDescriptorPoolSize> m_poolSizes{};    // 计划分配的各描述符的类型及其数量
+            uint32_t m_maxSets = 1000;  // 从该池中分配的描述符集的最大数量
+            VkDescriptorPoolCreateFlags m_poolFlags = 0;    // 默认不分配和释放
         };
 
         CzxDescriptorPool(
@@ -71,12 +75,16 @@ namespace czx {
             VkDescriptorPoolCreateFlags poolFlags,
             const std::vector<VkDescriptorPoolSize>& poolSizes);
         ~CzxDescriptorPool();
+        // 禁赋值与拷贝
         CzxDescriptorPool(const CzxDescriptorPool&) = delete;
         CzxDescriptorPool& operator=(const CzxDescriptorPool&) = delete;
 
-        // 分配描述符
-        bool allocateDescriptor(
-            const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptor) const;
+        /** 基于池和相应的描述符集布局来分配单个/多个使用相同布局的描述符集内存
+          * @param descriptorSetLayout : 共享的描述符集布局
+          * @param descriptorSetCount ：描述符集分配数量
+          * @param descriptors ：接收分配的描述符集
+        */
+        bool allocateDescriptorSets(const VkDescriptorSetLayout& descriptorSetLayout, int descriptorSetCount, std::vector<VkDescriptorSet>& descriptors) const;
         // 释放描述符
         void freeDescriptors(std::vector<VkDescriptorSet>& descriptors) const;
         // 重置描述符池
@@ -89,7 +97,7 @@ namespace czx {
         friend class CzxDescriptorWriter;
     };
 
-    // 负责构建实际的描述符
+
     class CzxDescriptorWriter {
     public:
         CzxDescriptorWriter(CzxDescriptorSetLayout& setLayout, CzxDescriptorPool& pool);
@@ -97,8 +105,9 @@ namespace czx {
         CzxDescriptorWriter& writeBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo);
         CzxDescriptorWriter& writeImage(uint32_t binding, const VkDescriptorImageInfo* imageInfo);
 
-        bool build(VkDescriptorSet& set);
-        void overwrite(VkDescriptorSet& set);
+        // 默认只分配并更新一个描述符集的数据
+        bool build(std::vector<VkDescriptorSet>& descriptorSets,int descriptorSetCount = 1);
+        void updateDescriptorSets(std::vector<VkDescriptorSet>& descriptorSets);
 
     private:
         CzxDescriptorSetLayout& m_setLayout;

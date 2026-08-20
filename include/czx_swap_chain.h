@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "czx_device.h"
+#include "czx_texture.h"
 
 // vulkan headers
 #include <vulkan/vulkan.h>
@@ -15,7 +16,7 @@ namespace czx {
     // 负责管理交换链、图像视图、深度缓冲、渲染通道和同步对象，是渲染流程中最核心的呈现基础设施之一。
     class CzxSwapChain {
     public:
-        static constexpr int MAX_FRAMES_IN_FLIGHT = 2;  // 同时允许两个帧在飞行中，常用于双缓冲/三重缓冲的同步。
+        static constexpr int MAX_FRAMES_IN_FLIGHT = 3;  // 同时允许两个帧在飞行中，常用于双缓冲/三重缓冲的同步
 
         CzxSwapChain(CzxDevice& deviceRef, VkExtent2D windowExtent);  // 使用当前窗口尺寸创建新的交换链。
         CzxSwapChain(CzxDevice& deviceRef, VkExtent2D windowExtent, std::shared_ptr<CzxSwapChain> previous);  // 通过旧交换链重建新交换链，便于窗口尺寸变化时平滑替换。
@@ -26,9 +27,10 @@ namespace czx {
 
         VkFramebuffer getFrameBuffer(int index) { return m_swapChainFramebuffers[index]; }  // 返回指定图像索引对应的帧缓冲对象。
         VkRenderPass getRenderPass() { return m_renderPass; }  // 返回渲染通道句柄，供渲染器创建渲染过程。
-        VkImageView getImageView(int index) { return m_swapChainImageViews[index]; }  // 返回指定交换链图像的视图句柄。
-        size_t imageCount() { return m_swapChainImages.size(); }  // 返回交换链图像数量。
-        VkFormat getSwapChainImageFormat() { return m_swapChainImageFormat; }  // 返回交换链图像格式。
+        VkImageView getImageView(int index) { return m_imageViews[index]; }  // 返回指定交换链图像的视图句柄。
+        size_t imageCount() { return m_images.size(); }  // 返回交换链图像数量。
+        VkFormat getSwapChainImageFormat() const{ return m_swapChainSurfaceFormat.format; }  // 返回交换链图像格式
+        VkFormat getSwapChainDepthFormat()const { return m_device.physicalDevice().Selected().m_depthFormat; }  // 返回交换链图像格式
         VkExtent2D getSwapChainExtent() { return m_swapChainExtent; }  // 返回交换链尺寸。
         uint32_t width() { return m_swapChainExtent.width; }  // 返回交换链宽度。
         uint32_t height() { return m_swapChainExtent.height; }  // 返回交换链高度。
@@ -36,58 +38,57 @@ namespace czx {
         float extentAspectRatio() {  // 计算当前交换链宽高比，方便透视投影等计算。
             return static_cast<float>(m_swapChainExtent.width) / static_cast<float>(m_swapChainExtent.height);
         }
-        VkFormat findDepthFormat();  // 查找当前设备支持的深度缓冲格式。
 
-        VkResult acquireNextImage(uint32_t* imageIndex);  // 从交换链中获取下一个可用于渲染的图像索引。
-        VkResult submitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex);  // 将命令缓冲区提交给当前图像并呈现。
+        VkResult acquireNextImage(uint32_t* imageIndex);  // 从交换链中获取下一个可用于渲染的图像索引
+        VkResult submitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex);  // 将命令缓冲区提交给当前图像渲染并配置呈现
 
         bool compareSwapChainFormats(const CzxSwapChain& swapChain)const {  // 比较两个交换链的颜色和深度格式，判断是否可直接复用。
-            return swapChain.m_swapChainDepthFormat == m_swapChainDepthFormat &&
-                swapChain.m_swapChainImageFormat == m_swapChainImageFormat;
+            return swapChain.getSwapChainDepthFormat() == getSwapChainDepthFormat() &&
+                swapChain.getSwapChainImageFormat() == getSwapChainImageFormat();
         }
 
     private:
         void init();  // 按顺序完成交换链的初始化流程。
-        void createSwapChain();  // 创建底层交换链对象。
-        void createImageViews();  // 为交换链图像创建对应的VkImageView。
+        void createSwapChain();  // 创建交换链对象、图像视图
         void createDepthResources();  // 创建深度缓冲资源，供深度测试使用。
         void createRenderPass();  // 创建渲染通道，描述颜色和深度附件的操作。
         void createFramebuffers();  // 为每个交换链图像创建对应帧缓冲对象。
         void createSyncObjects();  // 创建信号量和栅栏，用于帧同步。
 
-        // Helper functions
-        VkSurfaceFormatKHR chooseSwapSurfaceFormat(  // 像素格式，从可用格式中选择合适的颜色格式和颜色空间
-            const std::vector<VkSurfaceFormatKHR>& availableFormats);
-        VkPresentModeKHR chooseSwapPresentMode(  // 从可用呈现模式中选择最适合的显示模式
-            const std::vector<VkPresentModeKHR>& availablePresentModes);
-        VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);  // 根据窗口大小和设备限制显式框定显示器上的显示范围。
 
-        VkFormat m_swapChainImageFormat;  // 交换链图像的颜色格式。
-        VkFormat m_swapChainDepthFormat;  // 深度缓冲图像格式。
-        VkExtent2D m_swapChainExtent;  // 交换链当前使用的屏幕范围。
+        // 从表面属性选择交换链图像数量,默认双缓冲以避免画面撕裂
+        static uint32_t chooseImageCount(const VkSurfaceCapabilitiesKHR& surfaceCaps);
+        // 像素格式，从可用格式中选择合适的颜色格式和颜色空间
+        static VkSurfaceFormatKHR chooseSwapSurfaceFormatAndColorSpace(const std::vector<VkSurfaceFormatKHR>& surfaceFormats);
+        // 从可用呈现模式中选择最适合的显示模式
+        static VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 
-        std::vector<VkFramebuffer> m_swapChainFramebuffers;  // 每个交换链图像对应的帧缓冲对象。
-        VkRenderPass m_renderPass;  // 当前渲染通道句柄。
 
-        std::vector<VkImage> m_depthImages;  // 深度图像句柄集合
-        std::vector<VkDeviceMemory> m_depthImageMemorys;  // 深度图像内存对象集合
-        std::vector<VkImageView> m_depthImageViews;  // 深度图像视图集合
-        std::vector<VkImage> m_swapChainImages;  // 交换链图像句柄集合，管理GPU内存申请的图像空间
-        std::vector<VkImageView> m_swapChainImageViews;  // 交换链图像视图集合，管理相对应的图像的布局
+        CzxDevice& m_device;
+        std::vector<CzxTexture> m_depthTextures;    // 每图像对应的depth buffer
 
-        CzxDevice& m_device;  // 对设备对象的引用，所有资源都依托于这个逻辑设备。
-        VkExtent2D m_windowExtent;  // 当前窗口的尺寸。
 
-        VkSwapchainKHR m_swapChain;  // Vulkan交换链句柄。
+        VkExtent2D m_swapChainExtent;  // 交换链当前使用的屏幕范围
+        VkSurfaceFormatKHR m_swapChainSurfaceFormat;
+        VkPresentModeKHR m_swapChainPresentMode;
+
+        VkSwapchainKHR m_swapChain;
+
+        std::vector<VkImage> m_images;  // 交换链图像句柄集合，管理GPU内存申请的图像空间
+        std::vector<VkImageView> m_imageViews;  // 交换链图像视图集合，管理相对应的图像的布局
+
+        VkRenderPass m_renderPass;  // 当前渲染通道句柄
+        std::vector<VkFramebuffer> m_swapChainFramebuffers;  // 每个交换链图像对应的帧缓冲对象
+
         std::shared_ptr<CzxSwapChain> m_oldSwapChain;  // 旧交换链引用，用于重建时释放旧资源。
 
         // GPU同步
-        std::vector<VkSemaphore> m_imageAvailableSemaphores;  // 用于表示图像是否空闲可用的信号量。
-        std::vector<VkSemaphore> m_renderFinishedSemaphores;  // 用于表示渲染是否完成、允许呈现的信号量。
+        std::vector<VkSemaphore> m_presentFinishedSemaphores;  // 该图像呈现完毕可以用于渲染
+        std::vector<VkSemaphore> m_renderFinishedSemaphores;  // 表示该图像渲染完成可以用于呈现
         // CPU与GPU共享，在CPU上等待GPU完成
-        std::vector<VkFence> m_inFlightFences;  // 每帧对应的提交完成栅栏。
-        std::vector<VkFence> m_imagesInFlight;  // 跟踪每个图像当前属于哪一帧。
-        size_t m_currentFrame = 0;  // 当前正在使用的帧索引。
+        std::vector<VkFence> m_inFlightFences;  // 表示该飞行帧是否阻塞
+        std::vector<VkFence> m_imagesInFlight;  // 表示该图像当前属于哪一飞行帧
+        size_t m_currentFrame = 0;  // 当前正在使用的飞行帧的索引
     };
 
 }  // namespace czx

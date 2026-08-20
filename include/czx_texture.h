@@ -15,13 +15,27 @@
 
 namespace czx {
 
-    // 纹理类，负责加载图片并创建Vulkan图像和采样器
     class CzxTexture {
     public:
+        /**
+         * @brief 从文件读取图像创建纹理/贴图
+         * @param device 逻辑设备
+         * @param filePath 纹理/贴图文件路径
+         * @param format default=RGBA8_SRGB 色彩校正后图像格式
+         */
         CzxTexture(
             CzxDevice& device,
             const std::string& filePath,
             VkFormat format = VK_FORMAT_R8G8B8A8_SRGB);
+        /**
+         * @brief 占位贴图
+         * @param device 逻辑设备
+         * @param format default=RGBA8_UNORM 数值图像格式
+         */
+        CzxTexture(
+            CzxDevice& device,
+            VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
+
         ~CzxTexture();
 
         CzxTexture(const CzxTexture&) = delete;
@@ -29,14 +43,7 @@ namespace czx {
         CzxTexture(CzxTexture&&) = default;
         CzxTexture& operator=(CzxTexture&&) = default;
 
-        // 获取图像视图，用于绑定到描述符集
-        VkImageView getImageView() const { return m_imageView; }
-        VkSampler getSampler() const { return m_sampler; }
         VkDescriptorImageInfo getDescriptorInfo() const;
-
-        // 获取纹理尺寸
-        uint32_t getWidth() const { return m_width; }
-        uint32_t getHeight() const { return m_height; }
 
         // 从文件加载纹理的静态方法
         static std::unique_ptr<CzxTexture> createTextureFromFile(
@@ -44,12 +51,15 @@ namespace czx {
             const std::string& filePath);
 
     private:
-        void createImage(const std::string& filePath, VkFormat format);
+        void createImageFromFile(const std::string& filePath, VkFormat format);
         void createImageView(VkFormat format);
         void createSampler();
 
+        int getBytesPerTexFormat(VkFormat format);
+
         CzxDevice& m_device;
 
+    public:
         VkImage m_image = VK_NULL_HANDLE;
         VkDeviceMemory m_imageMemory = VK_NULL_HANDLE;
         VkImageView m_imageView = VK_NULL_HANDLE;

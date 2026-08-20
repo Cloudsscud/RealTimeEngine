@@ -1,21 +1,20 @@
 #version 450
 
 layout (location = 0) in vec3 fragColor;
-layout(location = 1) in vec2 fragUv;
+layout(location = 1) in vec2 texCoord;
 
-layout (location = 0) out vec4 outColor;
+layout (location = 0) out vec4 out_Color;
 
 layout(push_constant) uniform Push{
 	mat4 modelMatrix;
 	mat4 normalMatrix;
 } push;
 
-layout(set = 0, binding = 1) uniform sampler2D texSampler;
-
+layout(set = 1, binding = 0) uniform sampler2D texSampler;
 
 void main(){
-	vec4 texColor = texture(texSampler, fragUv);
+	vec4 texColor = texture(texSampler, texCoord);
 
 
-	outColor = vec4(fragColor * texColor.rgb, 1.0);
+	out_Color = vec4(fragColor * texColor.rgb, 1.0);
 }

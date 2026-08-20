@@ -6,7 +6,7 @@ layout(location = 2) in vec3 normal;
 layout(location = 3) in vec2 uv;
 
 layout(location = 0) out vec3 fragColor;
-layout(location = 1) out vec2 fragUv;
+layout(location = 1) out vec2 texCoord;
 
 // 推送的常量数据顺序要一致
 layout(push_constant) uniform Push{
@@ -14,7 +14,7 @@ layout(push_constant) uniform Push{
 	mat4 normalMatrix;
 } push;
 
-layout(set = 0, binding = 0) uniform Globalubo{
+layout(set = 0, binding = 0) uniform GlobalUbo{
 	mat4 projectionViewMatrix;
 	vec3 directionToLight;
 } ubo;
@@ -39,5 +39,5 @@ void main(){
 
 	fragColor = lightIntensity * color;
 
-	fragUv = uv;
+	texCoord = uv;
 }

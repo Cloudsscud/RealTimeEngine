@@ -129,7 +129,7 @@ add_dependencies(${PROJECT_NAME} CompileShaders)
 
 # 设置C++标准
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET RealTimeEngine PROPERTY CXX_STANDARD 17)
+  set_property(TARGET RealTimeEngine PROPERTY CXX_STANDARD 20)
 endif()
 
 # 添加包含目录

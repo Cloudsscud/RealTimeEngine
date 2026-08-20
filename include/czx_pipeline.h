@@ -8,28 +8,28 @@
 
 namespace czx {
 
-	// 管线配置信息，方便应用层快速管理管线，允许多个管线复用相同配置，创建后通常不再修改。
+	// 管线配置信息，方便应用层快速管理管线，允许多个管线复用相同配置，管线创建后通常不再修改。
 	struct PipelineConfigInfo{
 		PipelineConfigInfo() = default;
 		PipelineConfigInfo(const PipelineConfigInfo&) = delete;
 		PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
 
-		VkPipelineViewportStateCreateInfo viewportInfo;  // 描述视口和裁剪矩形范围，决定渲染输出区域。
-		VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;  // 用于配置输入装配阶段，把顶点数据组装成图元，创建后拓扑通常固定。
-		VkPipelineRasterizationStateCreateInfo rasterizationInfo;  // 用于控制几何体如何被光栅化为片元，决定是否开启背面剔除等特性。
-		VkPipelineMultisampleStateCreateInfo multisampleInfo;  // 控制多重采样抗锯齿等采样方式。
-		VkPipelineColorBlendAttachmentState colorBlendAttachment;  // 控制单个颜色附件的混合公式和写入掩码。
-		VkPipelineColorBlendStateCreateInfo colorBlendInfo;  // 封装所有颜色附件的混合状态，使用全局混合常量。
-		VkPipelineDepthStencilStateCreateInfo depthStencilInfo;  // 控制深度测试、深度写入、比较操作以及模板测试。
-		std::vector<VkDynamicState> dynamicStateEnables;  // 允许在管线创建后动态修改的状态列表，如视口和裁剪矩形。
-		VkPipelineDynamicStateCreateInfo dynamicStateInfo;  // 描述动态状态的配置结构体。
+		VkPipelineViewportStateCreateInfo viewportInfo{};  // 描述视口和裁剪矩形范围，决定渲染输出区域
+		VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};  // 用于配置输入装配阶段，把顶点数据组装成图元，创建后拓扑通常固定
+		VkPipelineRasterizationStateCreateInfo rasterizationInfo{};  // 用于控制几何体如何被光栅化为片元，决定是否开启背面剔除等特性
+		VkPipelineMultisampleStateCreateInfo multisampleInfo{};  // 控制多重采样抗锯齿等采样方式
+		VkPipelineColorBlendAttachmentState colorBlendAttachment{};  // 控制单个颜色附件的混合公式和写入掩码
+		VkPipelineColorBlendStateCreateInfo colorBlendStateInfo{};  // 封装所有颜色附件的混合状态，使用全局混合常量
+		VkPipelineDepthStencilStateCreateInfo depthStencilStateInfo{};  // 控制深度测试、深度写入、比较操作以及模板测试
+		std::vector<VkDynamicState> dynamicStateEnables{};  // 允许在管线创建后动态修改的状态列表，如视口和裁剪矩形
+		VkPipelineDynamicStateCreateInfo dynamicStateInfo{};  // 描述动态状态的配置结构体
 		// 默认管线配置不处理管线布局与渲染通道，在函数外设置
-		VkPipelineLayout pipelineLayout = nullptr;  // 描述资源绑定布局，告诉管线如何访问着色器资源。
-		VkRenderPass renderPass = nullptr;  // 描述帧缓冲的格式、采样数和加载存储操作。
-		uint32_t subpass = 0;  // 指定渲染通道中的子通道索引。
+		VkPipelineLayout pipelineLayout = nullptr;  // 描述资源绑定布局，告诉管线如何访问着色器资源
+		VkRenderPass renderPass = nullptr;  // 描述帧缓冲的格式、采样数和加载存储操作
+		uint32_t subpass = 0;  // 指定渲染通道中的子通道索引
 	};
 
-	// 负责从SPIR-V着色器文件中创建并管理Vulkan图形管线，封装着色器模块和渲染状态配置。
+	// 负责从SPIR-V着色器文件中创建并管理Vulkan图形管线，封装着色器模块和渲染状态配置
 	class CzxPipeline {
 	public:
 		CzxPipeline(
@@ -54,13 +54,13 @@ namespace czx {
 		void createGraphicsPipeline(
 			const std::string& vertFilePath,
 			const std::string& fragFilePath,
-			const PipelineConfigInfo& configInfo);  // 组装着色器、顶点输入和渲染状态，真正创建管线。
+			const PipelineConfigInfo& configInfo);
 
-		void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);  // 将着色器字节码包装成Vulkan着色器模块。
+		void createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);  // 将着色器字节码包装成Vulkan着色器模块
 
-		CzxDevice& m_device;  // 引用设备对象，所有管线资源都依托于它的逻辑设备句柄。
-		VkPipeline m_graphicsPipeline;  // Vulkan图形管线句柄。
-		VkShaderModule m_vertShaderModule;  // 顶点着色器模块句柄。
-		VkShaderModule m_fragShaderModule;  // 片段着色器模块句柄。
+		CzxDevice& m_device;
+		VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;  // Vulkan图形管线句柄
+		VkShaderModule m_vertShaderModule = VK_NULL_HANDLE;  // 顶点着色器模块句柄
+		VkShaderModule m_fragShaderModule = VK_NULL_HANDLE;  // 片段着色器模块句柄
 	};
 }	// namespace czx

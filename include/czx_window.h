@@ -36,13 +36,16 @@ namespace czx {
 		// 创建vulkan窗口表面，vulkan依赖于表面来呈现图像
 		void createWindowSurface(VkInstance instance, VkSurfaceKHR* surface);  // 为当前窗口创建Vulkan呈现表面，供渲染和交换链使用。
 	private:
+		// esc按键关闭窗口回调函数
+		static void GLFW_KeyCallBack(GLFWwindow* window, int key, int scancode, int action, int mods);
+		
 		// 帧缓冲大小变化的回调函数(C风格静态函数)，即窗口大小变化时自动调用来更新尺寸
-		static void framebufferResizeCallBack(GLFWwindow* window, int width, int height);  // 这是GLFW回调函数入口，用于在窗口大小变化时同步更新内部状态。
+		static void GLFW_FramebufferResizeCallBack(GLFWwindow* window, int width, int height);  // 这是GLFW回调函数入口，用于在窗口大小变化时同步更新内部状态。
 		// 内部初始化窗口的接口，用于构造中调用
 		void initWindow();  // 把GLFW窗口创建与初始化流程封装在这里，构造函数只需调用它即可。
 
-		int m_width;  // 保存当前窗口宽度，供尺寸查询和交换链重建使用。
-		int m_height;  // 保存当前窗口高度，供尺寸查询和交换链重建使用。
+		int m_width;	// 窗口宽度
+		int m_height;	// 窗口高度
 		bool m_framebufferResized = false;  // 记录窗口帧缓冲尺寸是否发生变化，便于外部判断是否需要重建资源。
 
 		// 管理窗口对象与窗口名称
